@@ -8,6 +8,7 @@ class LiquidationRecord {
   final int simulatedLossAmount;
   final String reason;
   final String note;
+  final List<String> achievedBadges;
 
   LiquidationRecord({
     required this.id,
@@ -17,6 +18,7 @@ class LiquidationRecord {
     required this.simulatedLossAmount,
     required this.reason,
     required this.note,
+    this.achievedBadges = const [],
   });
 
   Map<String, dynamic> toMap() {
@@ -28,6 +30,7 @@ class LiquidationRecord {
       'simulatedLossAmount': simulatedLossAmount,
       'reason': reason,
       'note': note,
+      'achievedBadges': achievedBadges,
     };
   }
 
@@ -40,6 +43,7 @@ class LiquidationRecord {
       simulatedLossAmount: map['simulatedLossAmount'] ?? 0,
       reason: map['reason'] ?? '의지력 방전',
       note: map['note'] ?? '',
+      achievedBadges: List<String>.from(map['achievedBadges'] ?? []),
     );
   }
 

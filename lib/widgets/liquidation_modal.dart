@@ -304,16 +304,69 @@ class _LiquidationModalState extends State<LiquidationModal> {
             border: Border.all(color: AppColors.border),
           ),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildSummaryRow('최종 존버 시간', '${provider.elapsedDuration.inHours}시간 ${provider.elapsedDuration.inMinutes % 60}분'),
               const SizedBox(height: 6),
               _buildSummaryRow('증발된 테스토스테론', '+${provider.returnRate.toStringAsFixed(1)}% 📉', color: AppColors.electricRed),
               const SizedBox(height: 6),
               _buildSummaryRow('패닉셀 사유', _selectedReason),
+              const Divider(color: AppColors.border, height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('이번 코인 달성 도전과제', style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                  Text(
+                    '총 ${provider.achievements.where((a) => a.isUnlocked).length}개',
+                    style: const TextStyle(color: AppColors.gold, fontSize: 11, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Builder(
+                builder: (context) {
+                  final unlocked = provider.achievements.where((a) => a.isUnlocked).toList();
+                  if (unlocked.isEmpty) {
+                    return const Text(
+                      '달성 도전과제 없음 (10분도 못 버티고 컷)',
+                      style: TextStyle(color: AppColors.textMuted, fontSize: 11, fontStyle: FontStyle.italic),
+                    );
+                  }
+                  return Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: unlocked.map((a) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppColors.gold.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: AppColors.gold.withValues(alpha: 0.4)),
+                        ),
+                        child: Text(
+                          '${a.icon} ${a.title}',
+                          style: const TextStyle(color: AppColors.gold, fontSize: 10, fontWeight: FontWeight.bold),
+                        ),
+                      );
+                    }).toList(),
+                  );
+                },
+              ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
+        const Text(
+          '※ 재도전 시 명예의 전당은 초기화되며,\n이번 코인의 도전과제 내역은 [현타 회고록]에 영구 박제됩니다.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: AppColors.electricRed,
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            height: 1.3,
+          ),
+        ),
+        const SizedBox(height: 14),
         const Text(
           '“손 씻고 거울 봐라 게이야...\n그래도 다시 일어나서 덤벨 들어야 사람새끼 된다.”',
           textAlign: TextAlign.center,

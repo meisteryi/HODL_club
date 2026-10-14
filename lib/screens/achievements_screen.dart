@@ -88,6 +88,32 @@ class AchievementsScreen extends StatelessWidget {
                   '수많은 딸잡이들이 10초의 쾌락에 패닉셀할 때, 끝까지 손 묶고 버텨낸 자만이 갓생을 산다.',
                   style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
                 ),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.darkRed.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.electricRed.withValues(alpha: 0.5)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded, color: AppColors.electricRed, size: 16),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '※ 패닉셀(한발빼기) 시 명예의 전당은 즉시 리셋되며, 달성한 도전과제는 [현타 회고록]에 영구 박제됩니다.',
+                          style: TextStyle(
+                            color: AppColors.electricRed,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            height: 1.3,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),

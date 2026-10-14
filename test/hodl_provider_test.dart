@@ -28,9 +28,9 @@ void main() {
       await Future.delayed(const Duration(milliseconds: 50));
 
       expect(provider.isInitialized, isTrue);
-      expect(provider.initialDeposit, 1000000);
-      expect(provider.currentValuation, greaterThanOrEqualTo(1000000));
-      expect(provider.achievements.length, 8);
+      expect(provider.initialDeposit, 100000);
+      expect(provider.currentValuation, greaterThanOrEqualTo(100000));
+      expect(provider.achievements.length, 38);
       expect(provider.liveOrders.isNotEmpty, isTrue);
 
       provider.dispose();
@@ -48,10 +48,15 @@ void main() {
       expect(provider.liquidationHistory.length, 1);
       expect(provider.liquidationHistory.first.reason, '📱 숏츠/릴스 무한스크롤');
       expect(provider.liquidationHistory.first.note, '의지력 방전 반성문');
+      expect(provider.liquidationHistory.first.achievedBadges, isNotNull);
 
-      // Resurrection achievement should be unlocked
+      // Resurrection achievement should be unlocked for the new run
       final resurrection = provider.achievements.firstWhere((a) => a.id == 'RESURRECTION');
       expect(resurrection.isUnlocked, isTrue);
+
+      // Other achievements (like FIRST_CANDLE) should be reset (locked)
+      final firstCandle = provider.achievements.firstWhere((a) => a.id == 'FIRST_CANDLE');
+      expect(firstCandle.isUnlocked, isFalse);
 
       provider.dispose();
     });

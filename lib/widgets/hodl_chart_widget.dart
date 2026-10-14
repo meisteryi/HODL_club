@@ -19,7 +19,7 @@ class _HodlChartWidgetState extends State<HodlChartWidget> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<HodlProvider>();
-    final spots = provider.chartSpots;
+    final spots = provider.getSpotsForPeriod(_selectedCandleIndex);
 
     if (spots.isEmpty) {
       return const SizedBox(
@@ -31,7 +31,9 @@ class _HodlChartWidgetState extends State<HodlChartWidget> {
     }
 
     final maxY = spots.map((s) => s.y).reduce(max);
+    final minY = spots.map((s) => s.y).reduce(min);
     final effectiveMaxY = maxY <= 0 ? 10.0 : maxY * 1.15;
+    final effectiveMinY = max(0.0, minY * 0.85);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -74,6 +76,7 @@ class _HodlChartWidgetState extends State<HodlChartWidget> {
                       setState(() {
                         _selectedCandleIndex = index;
                       });
+                      provider.recordChartInspect();
                     },
                     child: Container(
                       margin: const EdgeInsets.only(left: 4),
@@ -99,19 +102,76 @@ class _HodlChartWidgetState extends State<HodlChartWidget> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
+
+          // Period commentary banner
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.cardSurface,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: _selectedCandleIndex == 0
+                    ? AppColors.electricRed.withValues(alpha: 0.4)
+                    : AppColors.border,
+              ),
+            ),
+            child: Text(
+              provider.getPeriodCommentary(_selectedCandleIndex),
+              style: TextStyle(
+                color: _selectedCandleIndex == 0 ? AppColors.gold : AppColors.textSecondary,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
           SizedBox(
-            height: 160,
+            height: 165,
             child: LineChart(
               LineChartData(
                 minX: 0,
                 maxX: spots.length > 1 ? (spots.length - 1).toDouble() : 1.0,
-                minY: 0,
+                minY: effectiveMinY,
                 maxY: effectiveMaxY,
+                lineTouchData: LineTouchData(
+                  enabled: true,
+                  touchTooltipData: LineTouchTooltipData(
+                    getTooltipItems: (touchedSpots) {
+                      return touchedSpots.map((touchedSpot) {
+                        final idx = touchedSpot.x.toInt();
+                        final event = provider.getEventLabel(_selectedCandleIndex, idx);
+                        return LineTooltipItem(
+                          '${touchedSpot.y.toStringAsFixed(1)}%\n',
+                          const TextStyle(
+                            color: AppColors.neonGreen,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            fontFamily: 'monospace',
+                          ),
+                          children: [
+                            TextSpan(
+                              text: event,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.normal,
+                              ),
+                            ),
+                          ],
+                        );
+                      }).toList();
+                    },
+                  ),
+                ),
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
-                  horizontalInterval: effectiveMaxY > 0 ? effectiveMaxY / 3 : 1,
+                  horizontalInterval: effectiveMaxY > effectiveMinY
+                      ? (effectiveMaxY - effectiveMinY) / 3
+                      : 1,
                   getDrawingHorizontalLine: (value) {
                     return FlLine(
                       color: AppColors.border.withValues(alpha: 0.5),
@@ -130,10 +190,12 @@ class _HodlChartWidgetState extends State<HodlChartWidget> {
                       reservedSize: 22,
                       interval: (spots.length / 4).clamp(1.0, 10.0),
                       getTitlesWidget: (value, meta) {
+                        final idx = value.toInt();
+                        final label = _formatXLabel(_selectedCandleIndex, spots.length, idx);
                         return Padding(
                           padding: const EdgeInsets.only(top: 4),
                           child: Text(
-                            'T-${(spots.length - 1 - value.toInt()) * 2}m',
+                            label,
                             style: const TextStyle(
                               color: AppColors.textMuted,
                               fontSize: 9,
@@ -148,7 +210,9 @@ class _HodlChartWidgetState extends State<HodlChartWidget> {
                     sideTitles: SideTitles(
                       showTitles: true,
                       reservedSize: 45,
-                      interval: effectiveMaxY > 0 ? effectiveMaxY / 3 : 1,
+                      interval: effectiveMaxY > effectiveMinY
+                          ? (effectiveMaxY - effectiveMinY) / 3
+                          : 1,
                       getTitlesWidget: (value, meta) {
                         return Text(
                           '+${value.toInt()}%',
@@ -166,7 +230,7 @@ class _HodlChartWidgetState extends State<HodlChartWidget> {
                 lineBarsData: [
                   LineChartBarData(
                     spots: spots,
-                    isCurved: true,
+                    isCurved: _selectedCandleIndex != 2, // 일봉은 계단식 감성
                     curveSmoothness: 0.35,
                     color: AppColors.neonGreen,
                     barWidth: 2.5,
@@ -174,13 +238,17 @@ class _HodlChartWidgetState extends State<HodlChartWidget> {
                     dotData: FlDotData(
                       show: true,
                       checkToShowDot: (spot, barData) {
-                        // only show glowing dot on the last active spot
+                        // 1분봉에서는 딥 저점과 현재 고점에 점 표시
+                        if (_selectedCandleIndex == 0) {
+                          return spot.x == 3 || spot.x == spots.last.x;
+                        }
                         return spot.x == spots.last.x;
                       },
                       getDotPainter: (spot, percent, barData, index) {
+                        final isDip = _selectedCandleIndex == 0 && spot.x == 3;
                         return FlDotCirclePainter(
-                          radius: 5,
-                          color: AppColors.neonGreen,
+                          radius: isDip ? 4 : 5,
+                          color: isDip ? AppColors.electricRed : AppColors.neonGreen,
                           strokeWidth: 2,
                           strokeColor: AppColors.background,
                         );
@@ -202,10 +270,10 @@ class _HodlChartWidgetState extends State<HodlChartWidget> {
               ),
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           const Center(
             child: Text(
-              '※ 본 차트는 순수 참을성으로 빚어낸 뇌 청정 무한 떡상 차트입니다 📈',
+              '※ 차트를 터치하면 당시의 유혹/반등 멘탈 이벤트를 확인할 수 있습니다 👆',
               style: TextStyle(
                 color: AppColors.textMuted,
                 fontSize: 10,
@@ -216,5 +284,22 @@ class _HodlChartWidgetState extends State<HodlChartWidget> {
         ],
       ),
     );
+  }
+
+  String _formatXLabel(int candleIndex, int totalSpots, int currentIndex) {
+    final diff = totalSpots - 1 - currentIndex;
+    if (diff == 0) return 'NOW';
+
+    switch (candleIndex) {
+      case 0:
+        return 'T-${diff}m';
+      case 1:
+        return 'T-${diff * 10}m';
+      case 2:
+        return 'D-$diff';
+      case 3:
+      default:
+        return 'W-$diff';
+    }
   }
 }

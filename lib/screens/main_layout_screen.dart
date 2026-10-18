@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
 import '../models/ticker_type.dart';
 import '../providers/hodl_provider.dart';
+import '../widgets/achievement_toast_overlay.dart';
 import '../widgets/circuit_breaker_modal.dart';
 import 'achievements_screen.dart';
 import 'dashboard_screen.dart';
@@ -60,8 +61,10 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
           ),
           child: SafeArea(
             bottom: false,
-            child: Column(
+            child: Stack(
               children: [
+                Column(
+                  children: [
                 // App Bar / Top Header
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -240,7 +243,23 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
                 ),
               ],
             ),
-          ),
+
+            // Top In-App Achievement Notification Toast
+            Positioned(
+              top: 56,
+              left: 12,
+              right: 12,
+              child: AchievementToastOverlay(
+                onOpenAchievements: () {
+                  setState(() {
+                    _currentIndex = 1; // 명예의 전당 (도전과제) 탭으로 이동
+                  });
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
         ),
       ),
     );

@@ -28,9 +28,9 @@ void main() {
       await Future.delayed(const Duration(milliseconds: 50));
 
       expect(provider.isInitialized, isTrue);
-      expect(provider.initialDeposit, 100000);
-      expect(provider.currentValuation, greaterThanOrEqualTo(100000));
-      expect(provider.achievements.length, 38);
+      expect(provider.initialDeposit, 0.0);
+      expect(provider.currentValuation, greaterThanOrEqualTo(0.0));
+      expect(provider.achievements.length, 195);
       expect(provider.liveOrders.isNotEmpty, isTrue);
 
       provider.dispose();

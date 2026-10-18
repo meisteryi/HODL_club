@@ -14,7 +14,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.text('금딸 존버 클럽'), findsOneWidget);
+    expect(find.text('딸스피 (DOSP)'), findsWidgets);
     expect(find.text('대시보드'), findsOneWidget);
     expect(find.text('명예의 전당'), findsOneWidget);
     expect(find.text('현타 회고록'), findsOneWidget);

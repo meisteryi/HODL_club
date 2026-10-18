@@ -75,30 +75,30 @@
 <body>
   <script>
     // 1. iOS 사파리 스크롤 드리프트 및 터치 오프셋 방지
-    window.addEventListener('scroll', function() {
+    window.addEventListener('scroll', function () {
       if (window.scrollY !== 0 || window.scrollX !== 0) {
         window.scrollTo(0, 0);
       }
     }, { passive: false });
 
-    window.addEventListener('resize', function() {
+    window.addEventListener('resize', function () {
       window.scrollTo(0, 0);
     });
 
-    document.addEventListener('gesturestart', function(e) {
+    document.addEventListener('gesturestart', function (e) {
       e.preventDefault();
     });
 
     // 2. 홈 화면 앱 삭제 없이 백그라운드 자동 업데이트 (데이터 100% 보존)
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.ready.then(function(registration) {
+      navigator.serviceWorker.ready.then(function (registration) {
         // 앱 실행 시 즉시 최신 버전 확인
         registration.update();
 
-        registration.addEventListener('updatefound', function() {
+        registration.addEventListener('updatefound', function () {
           var newWorker = registration.installing;
           if (newWorker) {
-            newWorker.addEventListener('statechange', function() {
+            newWorker.addEventListener('statechange', function () {
               if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                 // 새 버전 다운로드 완료 시 데이터(로컬스토리지) 보존하며 자동 갱신
                 window.location.reload();
@@ -110,7 +110,7 @@
 
       // 새 서비스 워커 활성화 시 자동 리프레시
       var refreshing = false;
-      navigator.serviceWorker.addEventListener('controllerchange', function() {
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
         if (!refreshing) {
           refreshing = true;
           window.location.reload();
@@ -118,9 +118,9 @@
       });
 
       // 백그라운드에서 다시 앱으로 돌아올 때도 버전 체크
-      document.addEventListener('visibilitychange', function() {
+      document.addEventListener('visibilitychange', function () {
         if (document.visibilityState === 'visible') {
-          navigator.serviceWorker.ready.then(function(registration) {
+          navigator.serviceWorker.ready.then(function (registration) {
             registration.update();
           });
         }

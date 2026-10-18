@@ -68,6 +68,20 @@ class HodlProvider extends ChangeNotifier {
 
   int _circuitBreakerCount = 0;
 
+  // In-app achievement notification queue
+  final List<Achievement> _achievementNotificationQueue = [];
+  Achievement? _currentAchievementNotification;
+  Achievement? get currentAchievementNotification => _currentAchievementNotification;
+
+  void dismissCurrentAchievementNotification() {
+    if (_achievementNotificationQueue.isNotEmpty) {
+      _currentAchievementNotification = _achievementNotificationQueue.removeAt(0);
+    } else {
+      _currentAchievementNotification = null;
+    }
+    notifyListeners();
+  }
+
   // Getters
   bool get isInitialized => _isInitialized;
   TickerType get activeTicker => _activeTicker;
@@ -226,6 +240,7 @@ class HodlProvider extends ChangeNotifier {
     _updateCalculations();
     _generateInitialOrders();
     _buildChartSpots();
+    await unlockAchievement('TICKER_SWITCHER');
     notifyListeners();
   }
 
@@ -457,22 +472,50 @@ class HodlProvider extends ChangeNotifier {
   }
 
   Future<void> _checkAutomaticAchievements() async {
+    // 0. 공통 첫 시작
+    await unlockAchievement('APP_FIRST_LAUNCH');
+
     // 1. 딸스피 자동 체크
     final ttalMin = _ttalspiElapsed.inMinutes;
     final ttalHrs = _ttalspiElapsed.inHours;
 
+    // 딸스피 시간(분)
+    if (ttalMin >= 1) await unlockAchievement('TT_MIN_1', ticker: TickerType.ttalspi);
+    if (ttalMin >= 3) await unlockAchievement('TT_MIN_3', ticker: TickerType.ttalspi);
+    if (ttalMin >= 5) await unlockAchievement('TT_MIN_5', ticker: TickerType.ttalspi);
     if (ttalMin >= 10) await unlockAchievement('FIRST_CANDLE', ticker: TickerType.ttalspi);
+    if (ttalMin >= 15) await unlockAchievement('TT_MIN_15', ticker: TickerType.ttalspi);
+    if (ttalMin >= 20) await unlockAchievement('TT_MIN_20', ticker: TickerType.ttalspi);
     if (ttalMin >= 30) await unlockAchievement('MIN_30', ticker: TickerType.ttalspi);
+    if (ttalMin >= 45) await unlockAchievement('TT_MIN_45', ticker: TickerType.ttalspi);
+
+    // 딸스피 시간(시간/일)
     if (ttalHrs >= 1) await unlockAchievement('HOUR_HOLDER', ticker: TickerType.ttalspi);
+    if (ttalMin >= 90) await unlockAchievement('TT_HOUR_1_5', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 2) await unlockAchievement('TT_HOUR_2', ticker: TickerType.ttalspi);
     if (ttalHrs >= 3) await unlockAchievement('HOUR_3', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 4) await unlockAchievement('TT_HOUR_4', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 5) await unlockAchievement('TT_HOUR_5', ticker: TickerType.ttalspi);
     if (ttalHrs >= 6) await unlockAchievement('HOUR_6', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 8) await unlockAchievement('TT_HOUR_8', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 10) await unlockAchievement('TT_HOUR_10', ticker: TickerType.ttalspi);
     if (ttalHrs >= 12) await unlockAchievement('HOUR_12', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 15) await unlockAchievement('TT_HOUR_15', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 18) await unlockAchievement('TT_HOUR_18', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 21) await unlockAchievement('TT_HOUR_21', ticker: TickerType.ttalspi);
     if (ttalHrs >= 24) await unlockAchievement('UPPER_LIMIT', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 30) await unlockAchievement('TT_HOUR_30', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 36) await unlockAchievement('TT_HOUR_36', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 42) await unlockAchievement('TT_HOUR_42', ticker: TickerType.ttalspi);
     if (ttalHrs >= 48) await unlockAchievement('WEEKEND_SHIELD', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 60) await unlockAchievement('TT_HOUR_60', ticker: TickerType.ttalspi);
     if (ttalHrs >= 72) await unlockAchievement('DAY_3', ticker: TickerType.ttalspi);
     if (ttalHrs >= 96) await unlockAchievement('DAY_4', ticker: TickerType.ttalspi);
     if (ttalHrs >= 120) await unlockAchievement('DAY_5', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 144) await unlockAchievement('TT_DAY_6', ticker: TickerType.ttalspi);
     if (ttalHrs >= 168) await unlockAchievement('STEEL_MENTAL', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 192) await unlockAchievement('TT_DAY_8', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 216) await unlockAchievement('TT_DAY_9', ticker: TickerType.ttalspi);
     if (ttalHrs >= 240) await unlockAchievement('DAY_10', ticker: TickerType.ttalspi);
     if (ttalHrs >= 336) await unlockAchievement('DAY_14', ticker: TickerType.ttalspi);
     if (ttalHrs >= 504) await unlockAchievement('DAY_21', ticker: TickerType.ttalspi);
@@ -481,52 +524,173 @@ class HodlProvider extends ChangeNotifier {
     if (ttalHrs >= 2400) await unlockAchievement('DAY_100', ticker: TickerType.ttalspi);
 
     // 딸스피 포인트 마일스톤
+    if (_ttalspiPoints >= 10.0) await unlockAchievement('TT_PTS_10', ticker: TickerType.ttalspi);
+    if (_ttalspiPoints >= 50.0) await unlockAchievement('TT_PTS_50', ticker: TickerType.ttalspi);
     if (_ttalspiPoints >= 100.0) await unlockAchievement('RETURN_10', ticker: TickerType.ttalspi);
+    if (_ttalspiPoints >= 250.0) await unlockAchievement('TT_PTS_250', ticker: TickerType.ttalspi);
     if (_ttalspiPoints >= 500.0) await unlockAchievement('RETURN_50', ticker: TickerType.ttalspi);
+    if (_ttalspiPoints >= 750.0) await unlockAchievement('TT_PTS_750', ticker: TickerType.ttalspi);
     if (_ttalspiPoints >= 1000.0) await unlockAchievement('WHALE_CLUB', ticker: TickerType.ttalspi);
+    if (_ttalspiPoints >= 1500.0) await unlockAchievement('TT_PTS_1500', ticker: TickerType.ttalspi);
     if (_ttalspiPoints >= 2000.0) await unlockAchievement('RETURN_200', ticker: TickerType.ttalspi);
+    if (_ttalspiPoints >= 3000.0) await unlockAchievement('TT_PTS_3000', ticker: TickerType.ttalspi);
+    if (_ttalspiPoints >= 4000.0) await unlockAchievement('TT_PTS_4000', ticker: TickerType.ttalspi);
     if (_ttalspiPoints >= 5000.0) await unlockAchievement('RETURN_500', ticker: TickerType.ttalspi);
+    if (_ttalspiPoints >= 7000.0) await unlockAchievement('TT_PTS_7000', ticker: TickerType.ttalspi);
+    if (_ttalspiPoints >= 10000.0) await unlockAchievement('TT_PTS_10000', ticker: TickerType.ttalspi);
+    if (_ttalspiPoints >= 20000.0) await unlockAchievement('TT_PTS_20000', ticker: TickerType.ttalspi);
 
-    // 딸스피 행동 마일스톤
-    if (ttalHrs >= 2) await unlockAchievement('CLEAN_BROWSER', ticker: TickerType.ttalspi);
-    if (ttalHrs >= 5) await unlockAchievement('PAPER_HAND_SHAME', ticker: TickerType.ttalspi);
-    if (ttalHrs >= 18) await unlockAchievement('COLD_SHOWER', ticker: TickerType.ttalspi);
-    if (ttalHrs >= 36) await unlockAchievement('DUMBBELL_REP', ticker: TickerType.ttalspi);
-    if (ttalHrs >= 60) await unlockAchievement('MIRROR_SLAP', ticker: TickerType.ttalspi);
-    if (ttalHrs >= 144) await unlockAchievement('GIGA_CHAD', ticker: TickerType.ttalspi);
+    // 딸스피 신체/심리/상황 변화 마일스톤
+    if (ttalHrs >= 2) await unlockAchievement('TT_BELT_LOCK', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 4) await unlockAchievement('PAPER_HAND_SHAME', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 7) await unlockAchievement('TT_SOAP_DROP', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 9) await unlockAchievement('TT_BED_ESCAPE', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 11) await unlockAchievement('TT_PIGEON_STARE', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 14) await unlockAchievement('TT_MUKBANG_PUPA', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 17) await unlockAchievement('TT_VOICE_CAVE', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 20) await unlockAchievement('TT_HAND_MUSCLE', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 26) await unlockAchievement('TT_GIRL_LASER', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 28) await unlockAchievement('TT_PANTS_SNAP', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 32) await unlockAchievement('TT_NIGHT_RUN', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 38) await unlockAchievement('TT_STAIR_3STEP', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 44) await unlockAchievement('TT_PROTEIN_SHOT', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 50) await unlockAchievement('TT_HERMIT_MODE', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 56) await unlockAchievement('TT_WING_BACK', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 65) await unlockAchievement('TT_TISSUE_CRASH', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 80) await unlockAchievement('TT_SUBWAY_GRIP', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 90) await unlockAchievement('TT_SHAVE_DANGER', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 110) await unlockAchievement('TT_CAFE_ORDER', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 130) await unlockAchievement('TT_ENERGY_SURGE', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 150) await unlockAchievement('TT_CHEST_PUMP', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 180) await unlockAchievement('TT_COLD_FACE', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 200) await unlockAchievement('TT_SQUAT_BURST', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 220) await unlockAchievement('TT_FIST_CLENCH', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 260) await unlockAchievement('TT_SMILE_MIRROR', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 300) await unlockAchievement('TT_BRAIN_FOG_0', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 360) await unlockAchievement('TT_DEEP_SLEEP', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 420) await unlockAchievement('TT_DOPAMINE_CLEAN', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 480) await unlockAchievement('TT_NO_TEMPTATION', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 550) await unlockAchievement('TT_CHAD_WALK', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 620) await unlockAchievement('TT_FAMILY_PEACE', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 700) await unlockAchievement('TT_DREAM_CONTROL', ticker: TickerType.ttalspi);
+
+    // 딸스피 부활 마일스톤
+    final ttalLiquidations = _liquidationHistory.where((r) => r.tickerType == 'ttalspi').length;
+    if (ttalLiquidations >= 1) await unlockAchievement('RESURRECTION', ticker: TickerType.ttalspi);
+    if (ttalLiquidations >= 5) await unlockAchievement('PHOENIX_5', ticker: TickerType.ttalspi);
+    if (ttalLiquidations >= 10) await unlockAchievement('TT_PHOENIX_10', ticker: TickerType.ttalspi);
 
     // 2. 야동스피 자동 체크
     final ydMin = _yadongspiElapsed.inMinutes;
     final ydHrs = _yadongspiElapsed.inHours;
 
     await unlockAchievement('YD_INCOGNITO_0S', ticker: TickerType.yadongspi);
+    if (ydMin >= 3) await unlockAchievement('YD_MIN_3', ticker: TickerType.yadongspi);
+    if (ydMin >= 5) await unlockAchievement('YD_MIN_5', ticker: TickerType.yadongspi);
     if (ydMin >= 10) await unlockAchievement('YD_SECRET_10M', ticker: TickerType.yadongspi);
+    if (ydMin >= 15) await unlockAchievement('YD_MIN_15', ticker: TickerType.yadongspi);
+    if (ydMin >= 20) await unlockAchievement('YD_MIN_20', ticker: TickerType.yadongspi);
     if (ydMin >= 30) await unlockAchievement('YD_MIN_30', ticker: TickerType.yadongspi);
+    if (ydMin >= 45) await unlockAchievement('YD_MIN_45', ticker: TickerType.yadongspi);
+
     if (ydHrs >= 1) await unlockAchievement('YD_HOUR_1', ticker: TickerType.yadongspi);
+    if (ydMin >= 90) await unlockAchievement('YD_HOUR_1_5', ticker: TickerType.yadongspi);
+    if (ydHrs >= 2) await unlockAchievement('YD_HOUR_2', ticker: TickerType.yadongspi);
     if (ydHrs >= 3) await unlockAchievement('YD_TWITTER_DELETE', ticker: TickerType.yadongspi);
+    if (ydHrs >= 4) await unlockAchievement('YD_HOUR_4', ticker: TickerType.yadongspi);
+    if (ydHrs >= 5) await unlockAchievement('YD_HOUR_5', ticker: TickerType.yadongspi);
     if (ydHrs >= 6) await unlockAchievement('YD_HOUR_6', ticker: TickerType.yadongspi);
+    if (ydHrs >= 8) await unlockAchievement('YD_HOUR_8', ticker: TickerType.yadongspi);
+    if (ydHrs >= 10) await unlockAchievement('YD_HOUR_10', ticker: TickerType.yadongspi);
     if (ydHrs >= 12) await unlockAchievement('YD_HOUR_12', ticker: TickerType.yadongspi);
+    if (ydHrs >= 15) await unlockAchievement('YD_HOUR_15', ticker: TickerType.yadongspi);
+    if (ydHrs >= 18) await unlockAchievement('YD_HOUR_18', ticker: TickerType.yadongspi);
+    if (ydHrs >= 21) await unlockAchievement('YD_HOUR_21', ticker: TickerType.yadongspi);
     if (ydHrs >= 24) await unlockAchievement('YD_CLEAN_24H', ticker: TickerType.yadongspi);
+    if (ydHrs >= 30) await unlockAchievement('YD_HOUR_30', ticker: TickerType.yadongspi);
+    if (ydHrs >= 36) await unlockAchievement('YD_HOUR_36', ticker: TickerType.yadongspi);
+    if (ydHrs >= 42) await unlockAchievement('YD_HOUR_42', ticker: TickerType.yadongspi);
     if (ydHrs >= 48) await unlockAchievement('YD_DAY_2', ticker: TickerType.yadongspi);
+    if (ydHrs >= 60) await unlockAchievement('YD_HOUR_60', ticker: TickerType.yadongspi);
     if (ydHrs >= 72) await unlockAchievement('YD_DOPAMINE_DETOX', ticker: TickerType.yadongspi);
     if (ydHrs >= 96) await unlockAchievement('YD_DAY_4', ticker: TickerType.yadongspi);
     if (ydHrs >= 120) await unlockAchievement('YD_DAY_5', ticker: TickerType.yadongspi);
+    if (ydHrs >= 144) await unlockAchievement('YD_DAY_6', ticker: TickerType.yadongspi);
     if (ydHrs >= 168) await unlockAchievement('YD_MONK_7D', ticker: TickerType.yadongspi);
+    if (ydHrs >= 192) await unlockAchievement('YD_DAY_8', ticker: TickerType.yadongspi);
+    if (ydHrs >= 216) await unlockAchievement('YD_DAY_9', ticker: TickerType.yadongspi);
     if (ydHrs >= 240) await unlockAchievement('YD_DAY_10', ticker: TickerType.yadongspi);
     if (ydHrs >= 336) await unlockAchievement('YD_DAY_14', ticker: TickerType.yadongspi);
+    if (ydHrs >= 504) await unlockAchievement('YD_DAY_21', ticker: TickerType.yadongspi);
     if (ydHrs >= 720) await unlockAchievement('YD_DAY_30', ticker: TickerType.yadongspi);
+    if (ydHrs >= 1200) await unlockAchievement('YD_DAY_50', ticker: TickerType.yadongspi);
+    if (ydHrs >= 2400) await unlockAchievement('YD_DAY_100', ticker: TickerType.yadongspi);
 
     // 야동스피 포인트 마일스톤
+    if (_yadongspiPoints >= 10.0) await unlockAchievement('YD_PTS_10', ticker: TickerType.yadongspi);
+    if (_yadongspiPoints >= 50.0) await unlockAchievement('YD_PTS_50', ticker: TickerType.yadongspi);
+    if (_yadongspiPoints >= 100.0) await unlockAchievement('YD_PTS_100', ticker: TickerType.yadongspi);
+    if (_yadongspiPoints >= 250.0) await unlockAchievement('YD_PTS_250', ticker: TickerType.yadongspi);
     if (_yadongspiPoints >= 500.0) await unlockAchievement('YD_POINTS_500', ticker: TickerType.yadongspi);
-    if (_yadongspiPoints >= 1000.0) await unlockAchievement('YD_CLEAN_24H', ticker: TickerType.yadongspi);
+    if (_yadongspiPoints >= 750.0) await unlockAchievement('YD_PTS_750', ticker: TickerType.yadongspi);
+    if (_yadongspiPoints >= 1000.0) await unlockAchievement('YD_PTS_1000', ticker: TickerType.yadongspi);
+    if (_yadongspiPoints >= 1500.0) await unlockAchievement('YD_PTS_1500', ticker: TickerType.yadongspi);
     if (_yadongspiPoints >= 2000.0) await unlockAchievement('YD_POINTS_2000', ticker: TickerType.yadongspi);
+    if (_yadongspiPoints >= 3000.0) await unlockAchievement('YD_PTS_3000', ticker: TickerType.yadongspi);
+    if (_yadongspiPoints >= 4000.0) await unlockAchievement('YD_PTS_4000', ticker: TickerType.yadongspi);
     if (_yadongspiPoints >= 5000.0) await unlockAchievement('YD_POINTS_5000', ticker: TickerType.yadongspi);
+    if (_yadongspiPoints >= 7000.0) await unlockAchievement('YD_PTS_7000', ticker: TickerType.yadongspi);
+    if (_yadongspiPoints >= 10000.0) await unlockAchievement('YD_PTS_10000', ticker: TickerType.yadongspi);
+    if (_yadongspiPoints >= 20000.0) await unlockAchievement('YD_PTS_20000', ticker: TickerType.yadongspi);
 
-    // 야동스피 행동 마일스톤
+    // 야동스피 디톡스/행동 마일스톤
     if (ydHrs >= 2) await unlockAchievement('YD_CLEAN_HISTORY', ticker: TickerType.yadongspi);
     if (ydHrs >= 4) await unlockAchievement('YD_BOOKMARK_PURGE', ticker: TickerType.yadongspi);
-    if (ydHrs >= 8) await unlockAchievement('YD_COLD_WATER', ticker: TickerType.yadongspi);
-    if (ydHrs >= 16) await unlockAchievement('YD_PUSHUP_DEFENSE', ticker: TickerType.yadongspi);
+    if (ydHrs >= 7) await unlockAchievement('YD_COLD_WATER', ticker: TickerType.yadongspi);
+    if (ydHrs >= 9) await unlockAchievement('YD_PUSHUP_DEFENSE', ticker: TickerType.yadongspi);
+    if (ydHrs >= 11) await unlockAchievement('YD_AIRPLANE_MODE', ticker: TickerType.yadongspi);
+    if (ydHrs >= 14) await unlockAchievement('YD_FAR_CHARGER', ticker: TickerType.yadongspi);
+    if (ydHrs >= 17) await unlockAchievement('YD_CLASSIC_SEARCH', ticker: TickerType.yadongspi);
+    if (ydHrs >= 20) await unlockAchievement('YD_NATURE_DOCU', ticker: TickerType.yadongspi);
+    if (ydHrs >= 26) await unlockAchievement('YD_RAIN_SOUND', ticker: TickerType.yadongspi);
+    if (ydHrs >= 28) await unlockAchievement('YD_CEILING_WATCH', ticker: TickerType.yadongspi);
+    if (ydHrs >= 32) await unlockAchievement('YD_SQUAT_STOP', ticker: TickerType.yadongspi);
+    if (ydHrs >= 38) await unlockAchievement('YD_SCREEN_TIME', ticker: TickerType.yadongspi);
+    if (ydHrs >= 44) await unlockAchievement('YD_BROWSER_RESET', ticker: TickerType.yadongspi);
+    if (ydHrs >= 50) await unlockAchievement('YD_CAFE_PEOPLE', ticker: TickerType.yadongspi);
+    if (ydHrs >= 56) await unlockAchievement('YD_ICE_WATER_CHUG', ticker: TickerType.yadongspi);
+    if (ydHrs >= 65) await unlockAchievement('YD_BED_LEAP', ticker: TickerType.yadongspi);
+    if (ydHrs >= 80) await unlockAchievement('YD_SNS_LOGOUT', ticker: TickerType.yadongspi);
+    if (ydHrs >= 90) await unlockAchievement('YD_DARK_MODE_OFF', ticker: TickerType.yadongspi);
+    if (ydHrs >= 110) await unlockAchievement('YD_GRASS_TOUCH', ticker: TickerType.yadongspi);
+    if (ydHrs >= 130) await unlockAchievement('YD_BOOK_FINISH', ticker: TickerType.yadongspi);
+    if (ydHrs >= 150) await unlockAchievement('YD_PENCIL_WRITE', ticker: TickerType.yadongspi);
+    if (ydHrs >= 180) await unlockAchievement('YD_WINDOW_AIR', ticker: TickerType.yadongspi);
+    if (ydHrs >= 200) await unlockAchievement('YD_SHOWER_SING', ticker: TickerType.yadongspi);
+    if (ydHrs >= 220) await unlockAchievement('YD_CLEAN_ROOM', ticker: TickerType.yadongspi);
+    if (ydHrs >= 260) await unlockAchievement('YD_PULLUP_BAR', ticker: TickerType.yadongspi);
+    if (ydHrs >= 300) await unlockAchievement('YD_FACE_SLAP', ticker: TickerType.yadongspi);
+    if (ydHrs >= 360) await unlockAchievement('YD_HOT_TEA', ticker: TickerType.yadongspi);
+    if (ydHrs >= 420) await unlockAchievement('YD_FOOD_TASTE', ticker: TickerType.yadongspi);
+    if (ydHrs >= 480) await unlockAchievement('YD_EAR_MASSAGE', ticker: TickerType.yadongspi);
+    if (ydHrs >= 550) await unlockAchievement('YD_DESK_PUSHUP', ticker: TickerType.yadongspi);
+    if (ydHrs >= 620) await unlockAchievement('YD_NO_CURIOUS', ticker: TickerType.yadongspi);
+    if (ydHrs >= 700) await unlockAchievement('YD_REAL_TALK', ticker: TickerType.yadongspi);
+
+    // 야동스피 부활 마일스톤
+    final ydLiquidations = _liquidationHistory.where((r) => r.tickerType == 'yadongspi').length;
+    if (ydLiquidations >= 1) await unlockAchievement('YD_RESURRECTION', ticker: TickerType.yadongspi);
+    if (ydLiquidations >= 5) await unlockAchievement('YD_PHOENIX_5', ticker: TickerType.yadongspi);
+    if (ydLiquidations >= 10) await unlockAchievement('YD_PHOENIX_10', ticker: TickerType.yadongspi);
+
+    // 3. 공통 마일스톤
+    final maxHrs = ttalHrs > ydHrs ? ttalHrs : ydHrs;
+    if (maxHrs >= 18) await unlockAchievement('COLD_SHOWER');
+    if (maxHrs >= 24) await unlockAchievement('NO_PULLBACK');
+    if (maxHrs >= 36) await unlockAchievement('DUMBBELL_REP');
+    if (maxHrs >= 60) await unlockAchievement('MIRROR_SLAP');
+    if (maxHrs >= 72) await unlockAchievement('DIAMOND_MIND');
+    if (maxHrs >= 144) await unlockAchievement('GIGA_CHAD');
 
     // 현실 시간대 트리거 (새벽 / 아침)
     final currentHour = DateTime.now().hour;
@@ -536,10 +700,6 @@ class HodlProvider extends ChangeNotifier {
       await unlockAchievement('DAWN_WARRIOR');
     } else if (currentHour >= 6 && currentHour <= 8) {
       await unlockAchievement('MORNING_WOOD');
-    }
-
-    if (_liquidationHistory.where((r) => r.tickerType == 'ttalspi').length >= 5) {
-      await unlockAchievement('PHOENIX_5', ticker: TickerType.ttalspi);
     }
   }
 
@@ -560,6 +720,25 @@ class HodlProvider extends ChangeNotifier {
       } else {
         await prefs.setStringList(_keyTtalspiAchievements, targetSet.toList());
       }
+
+      // Enqueue in-app toast notification
+      final ach = achievements.firstWhere(
+        (a) => a.id == id,
+        orElse: () => Achievement(
+          id: id,
+          title: '도전과제 달성!',
+          subtitle: '',
+          description: '',
+          icon: '🏆',
+          rewardTitle: '',
+        ),
+      );
+      if (_currentAchievementNotification == null) {
+        _currentAchievementNotification = ach;
+      } else {
+        _achievementNotificationQueue.add(ach);
+      }
+
       notifyListeners();
     }
   }

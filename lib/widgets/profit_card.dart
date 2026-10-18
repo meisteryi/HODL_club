@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
 import '../models/hodl_rank.dart';
+import '../models/ticker_type.dart';
 import '../providers/hodl_provider.dart';
 
 class ProfitCard extends StatelessWidget {
@@ -11,17 +11,23 @@ class ProfitCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<HodlProvider>();
-    final currencyFormat = NumberFormat('#,###');
-    final returnRateStr = provider.returnRate >= 0
-        ? '+${provider.returnRate.toStringAsFixed(2)}%'
-        : '${provider.returnRate.toStringAsFixed(2)}%';
-    final profitStr = provider.profitAmount >= 0
-        ? '+${currencyFormat.format(provider.profitAmount)} 원'
-        : '${currencyFormat.format(provider.profitAmount)} 원';
+    final activeTicker = provider.activeTicker;
+    final currentPoints = provider.currentPoints;
+
+    final pointsStr = currentPoints >= 0
+        ? '+${currentPoints.toStringAsFixed(2)} P'
+        : '${currentPoints.toStringAsFixed(2)} P';
+    final pointsColor = currentPoints >= 0 ? AppColors.neonGreen : AppColors.electricRed;
 
     final rank = provider.currentRank;
-    final nextRank = _getNextRank(rank);
+    final nextRank = _getNextRank(rank, activeTicker);
     final progress = _calculateProgress(provider.elapsedDuration, rank, nextRank);
+
+    final statusCommentary = currentPoints >= 0
+        ? (activeTicker == TickerType.ttalspi
+            ? '🔥 테스토스테론 폭등 랠리 중'
+            : '🛡️ 전두엽 도파민 정상화 랠리 중')
+        : '🚨 상폐 페널티(-2,000P) 복구 진행 중';
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -30,12 +36,12 @@ class ProfitCard extends StatelessWidget {
         color: AppColors.cardSurface,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: AppColors.neonGreen.withValues(alpha: 0.25),
+          color: pointsColor.withValues(alpha: 0.3),
           width: 1.2,
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.neonGreen.withValues(alpha: 0.08),
+            color: pointsColor.withValues(alpha: 0.08),
             blurRadius: 18,
             offset: const Offset(0, 6),
           ),
@@ -73,10 +79,10 @@ class ProfitCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const Text(
-                '🔥 테스토스테론 폭등 랠리 중',
+              Text(
+                statusCommentary,
                 style: TextStyle(
-                  color: AppColors.neonGreen,
+                  color: pointsColor,
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                 ),
@@ -85,80 +91,62 @@ class ProfitCard extends StatelessWidget {
           ),
           const SizedBox(height: 14),
 
-          // Main Return Rate & Profit
+          // Main Index Points
           Row(
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
               Text(
-                returnRateStr,
-                style: const TextStyle(
-                  color: AppColors.neonGreen,
+                pointsStr,
+                style: TextStyle(
+                  color: pointsColor,
                   fontSize: 34,
                   fontWeight: FontWeight.w900,
                   letterSpacing: -1,
                   fontFamily: 'monospace',
                   shadows: [
                     Shadow(
-                      color: AppColors.neonGreen,
+                      color: pointsColor.withValues(alpha: 0.6),
                       blurRadius: 12,
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 8),
-              const Icon(
-                Icons.arrow_upward_rounded,
-                color: AppColors.neonGreen,
+              Icon(
+                currentPoints >= 0 ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+                color: pointsColor,
                 size: 26,
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
+          Text(
+            '실시간 ${activeTicker.nameKo} 지수 (시작 0P • 1일 +1,000P)',
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 12),
 
-          // Total Simulated Valuation
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    '추정 갓생 자산 가치',
-                    style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${currencyFormat.format(provider.currentValuation)} 원',
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      fontFamily: 'monospace',
-                    ),
-                  ),
-                ],
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  const Text(
-                    '세이브된 도파민 이득',
-                    style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    profitStr,
-                    style: const TextStyle(
-                      color: AppColors.neonGreen,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      fontFamily: 'monospace',
-                    ),
-                  ),
-                ],
-              ),
-            ],
+          // Index Specs Row
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildSpecItem('시작 기준 지수', '0.0 P'),
+                _buildSpecItem('상승 속도', '+1,000 P / 1일'),
+                _buildSpecItem('상폐 페널티', '-2,000 P', isDanger: true),
+              ],
+            ),
           ),
 
           const SizedBox(height: 14),
@@ -211,10 +199,33 @@ class ProfitCard extends StatelessWidget {
     );
   }
 
-  HodlRank? _getNextRank(HodlRank current) {
+  Widget _buildSpecItem(String label, String value, {bool isDanger = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: TextStyle(
+            color: isDanger ? AppColors.electricRed : AppColors.textPrimary,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            fontFamily: 'monospace',
+          ),
+        ),
+      ],
+    );
+  }
+
+  HodlRank? _getNextRank(HodlRank current, TickerType ticker) {
+    final ranks = HodlRank.getRanksFor(ticker);
     final nextLevel = current.level + 1;
-    final index = HodlRank.allRanks.indexWhere((r) => r.level == nextLevel);
-    return index != -1 ? HodlRank.allRanks[index] : null;
+    final index = ranks.indexWhere((r) => r.level == nextLevel);
+    return index != -1 ? ranks[index] : null;
   }
 
   double _calculateProgress(

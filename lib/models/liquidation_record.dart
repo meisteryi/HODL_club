@@ -9,6 +9,7 @@ class LiquidationRecord {
   final String reason;
   final String note;
   final List<String> achievedBadges;
+  final String tickerType; // 'ttalspi' or 'yadongspi'
 
   LiquidationRecord({
     required this.id,
@@ -19,6 +20,7 @@ class LiquidationRecord {
     required this.reason,
     required this.note,
     this.achievedBadges = const [],
+    this.tickerType = 'ttalspi',
   });
 
   Map<String, dynamic> toMap() {
@@ -31,6 +33,7 @@ class LiquidationRecord {
       'reason': reason,
       'note': note,
       'achievedBadges': achievedBadges,
+      'tickerType': tickerType,
     };
   }
 
@@ -44,6 +47,7 @@ class LiquidationRecord {
       reason: map['reason'] ?? '의지력 방전',
       note: map['note'] ?? '',
       achievedBadges: List<String>.from(map['achievedBadges'] ?? []),
+      tickerType: map['tickerType'] ?? 'ttalspi',
     );
   }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
+import '../models/ticker_type.dart';
 import '../providers/hodl_provider.dart';
 
 class StockTickerHeader extends StatefulWidget {
@@ -33,20 +34,51 @@ class _StockTickerHeaderState extends State<StockTickerHeader>
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<HodlProvider>();
+    final activeTicker = provider.activeTicker;
+
     final startDateStr = provider.startTime != null
         ? DateFormat('yyyy.MM.dd HH:mm').format(provider.startTime!)
         : '-';
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+      decoration: const BoxDecoration(
         color: AppColors.surface,
-        border: const Border(
+        border: Border(
           bottom: BorderSide(color: AppColors.border, width: 1),
         ),
       ),
       child: Column(
         children: [
+          // 1. Dual Ticker Selector Tabs (MTS 전광판 탭)
+          Row(
+            children: [
+              Expanded(
+                child: _buildTickerTab(
+                  ticker: TickerType.ttalspi,
+                  title: '딸스피 (DOSP)',
+                  points: provider.ttalspiPoints,
+                  elapsed: provider.ttalspiElapsed,
+                  isSelected: activeTicker == TickerType.ttalspi,
+                  onTap: () => provider.switchTicker(TickerType.ttalspi),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildTickerTab(
+                  ticker: TickerType.yadongspi,
+                  title: '야동스피 (YDSP)',
+                  points: provider.yadongspiPoints,
+                  elapsed: provider.yadongspiElapsed,
+                  isSelected: activeTicker == TickerType.yadongspi,
+                  onTap: () => provider.switchTicker(TickerType.yadongspi),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // 2. Active Ticker Detail Banner
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -54,7 +86,7 @@ class _StockTickerHeaderState extends State<StockTickerHeader>
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(7),
+                    padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       color: AppColors.neonGreen.withValues(alpha: 0.12),
                       shape: BoxShape.circle,
@@ -62,17 +94,17 @@ class _StockTickerHeaderState extends State<StockTickerHeader>
                         color: AppColors.neonGreen.withValues(alpha: 0.3),
                       ),
                     ),
-                    child: const Text('🍆', style: TextStyle(fontSize: 16)),
+                    child: Text(activeTicker.icon, style: const TextStyle(fontSize: 18)),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
-                          const Text(
-                            '금딸코인 (NOFAP)',
-                            style: TextStyle(
+                          Text(
+                            '${activeTicker.nameKo} (${activeTicker.code})',
+                            style: const TextStyle(
                               color: AppColors.textPrimary,
                               fontSize: 16,
                               fontWeight: FontWeight.w800,
@@ -92,9 +124,9 @@ class _StockTickerHeaderState extends State<StockTickerHeader>
                                 color: AppColors.electricRed.withValues(alpha: 0.4),
                               ),
                             ),
-                            child: const Text(
-                              '손 떼라',
-                              style: TextStyle(
+                            child: Text(
+                              activeTicker.tagLine,
+                              style: const TextStyle(
                                 color: AppColors.electricRed,
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
@@ -104,9 +136,9 @@ class _StockTickerHeaderState extends State<StockTickerHeader>
                         ],
                       ),
                       const SizedBox(height: 2),
-                      const Text(
-                        'KRW-NOFAP • 뇌 안개(브레인포그) 청산 중',
-                        style: TextStyle(
+                      Text(
+                        activeTicker.subTitle,
+                        style: const TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 11,
                         ),
@@ -156,9 +188,9 @@ class _StockTickerHeaderState extends State<StockTickerHeader>
                           ),
                         ),
                         const SizedBox(width: 5),
-                        const Text(
-                          '존버 중',
-                          style: TextStyle(
+                        Text(
+                          activeTicker == TickerType.ttalspi ? '존버 중' : '클린 중',
+                          style: const TextStyle(
                             color: AppColors.neonGreen,
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
@@ -173,22 +205,139 @@ class _StockTickerHeaderState extends State<StockTickerHeader>
             ],
           ),
           const SizedBox(height: 10),
+
+          // 3. Quick Info strip
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
               color: AppColors.cardSurface,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.border),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildInfoTag('마지막 발사', startDateStr),
-                _buildInfoTag('테스토스테론', '+840% 풀충전 ⚡'),
-                _buildInfoTag('멘탈 상태', '뇌 녹음 차단 완료 🛡️'),
+                _buildInfoTag(
+                  activeTicker == TickerType.ttalspi ? '마지막 발사' : '마지막 시청',
+                  startDateStr,
+                ),
+                _buildInfoTag(
+                  activeTicker == TickerType.ttalspi ? '테스토스테론' : '전두엽 정화',
+                  activeTicker == TickerType.ttalspi
+                      ? '+840% 충전 ⚡'
+                      : '+920% 회복 🧠',
+                ),
+                _buildInfoTag(
+                  activeTicker == TickerType.ttalspi ? '멘탈 상태' : '브라우저 상태',
+                  activeTicker == TickerType.ttalspi
+                      ? '뇌 녹음 차단 🛡️'
+                      : '시크릿탭 영봉인 🔒',
+                ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTickerTab({
+    required TickerType ticker,
+    required String title,
+    required double points,
+    required Duration elapsed,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    final pointsStr = points >= 0
+        ? '+${points.toStringAsFixed(1)} P'
+        : '${points.toStringAsFixed(1)} P';
+    final pointsColor = points >= 0 ? AppColors.neonGreen : AppColors.electricRed;
+    final durationStr = elapsed.inDays > 0
+        ? '${elapsed.inDays}일 ${elapsed.inHours % 24}시간'
+        : '${elapsed.inHours}시간 ${elapsed.inMinutes % 60}분';
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.cardSurface : AppColors.background.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? AppColors.neonGreen : AppColors.border,
+            width: isSelected ? 1.6 : 1,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppColors.neonGreen.withValues(alpha: 0.15),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(ticker.icon, style: const TextStyle(fontSize: 13)),
+                    const SizedBox(width: 4),
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: isSelected ? AppColors.textPrimary : AppColors.textSecondary,
+                        fontSize: 11,
+                        fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                if (isSelected)
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      color: AppColors.neonGreen,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  pointsStr,
+                  style: TextStyle(
+                    color: pointsColor,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+                Text(
+                  durationStr,
+                  style: const TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

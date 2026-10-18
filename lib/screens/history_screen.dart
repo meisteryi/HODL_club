@@ -11,7 +11,6 @@ class HistoryScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = context.watch<HodlProvider>();
     final history = provider.liquidationHistory;
-    final currencyFormat = NumberFormat('#,###');
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -140,9 +139,9 @@ class HistoryScreen extends StatelessWidget {
                                   color: AppColors.darkRed,
                                   borderRadius: BorderRadius.circular(4),
                                 ),
-                                child: const Text(
-                                  '발사(상폐)',
-                                  style: TextStyle(
+                                child: Text(
+                                  record.tickerType == 'yadongspi' ? '🔞 야동스피 상폐' : '🍆 딸스피 상폐',
+                                  style: const TextStyle(
                                     color: AppColors.electricRed,
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold,
@@ -175,12 +174,16 @@ class HistoryScreen extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text('패닉셀 원인:', style: TextStyle(color: AppColors.textSecondary, fontSize: 11)),
-                          Text(
-                            record.reason,
-                            style: const TextStyle(
-                              color: AppColors.textPrimary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
+                          Expanded(
+                            child: Text(
+                              record.reason,
+                              textAlign: TextAlign.end,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: AppColors.textPrimary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ],
@@ -189,9 +192,12 @@ class HistoryScreen extends StatelessWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('증발된 테스토스테론:', style: TextStyle(color: AppColors.textSecondary, fontSize: 11)),
                           Text(
-                            '+${currencyFormat.format(record.simulatedLossAmount)} 원 (+${record.returnRateAchieved.toStringAsFixed(1)}%)',
+                            record.tickerType == 'yadongspi' ? '지수 폭락 감점:' : '증발된 테스토스테론:',
+                            style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                          ),
+                          Text(
+                            '-2,000 P (최종 달성: ${record.returnRateAchieved.toStringAsFixed(1)} P)',
                             style: const TextStyle(
                               color: AppColors.electricRed,
                               fontSize: 12,

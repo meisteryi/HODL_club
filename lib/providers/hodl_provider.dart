@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/achievement.dart';
 import '../models/hodl_rank.dart';
 import '../models/liquidation_record.dart';
+import '../models/ticker_type.dart';
 
 class OrderBookItem {
   final String time;
@@ -22,21 +23,37 @@ class OrderBookItem {
 }
 
 class HodlProvider extends ChangeNotifier {
-  static const String _keyStartTime = 'hodl_start_time';
+  // SharedPreferences keys
+  static const String _keyTtalspiStartTime = 'hodl_start_time';
+  static const String _keyTtalspiBasePoints = 'hodl_ttalspi_base_points';
+  static const String _keyYadongspiStartTime = 'hodl_yadongspi_start_time';
+  static const String _keyYadongspiBasePoints = 'hodl_yadongspi_base_points';
+  static const String _keyActiveTicker = 'hodl_active_ticker';
   static const String _keyHistory = 'hodl_liquidation_history';
-  static const String _keyAchievements = 'hodl_unlocked_achievements';
+  static const String _keyAchievements = 'hodl_unlocked_achievements'; // legacy
+  static const String _keyTtalspiAchievements = 'hodl_ttalspi_unlocked_achievements';
+  static const String _keyYadongspiAchievements = 'hodl_yadongspi_unlocked_achievements';
   static const String _keySafariDismissed = 'hodl_safari_dismissed';
 
-  DateTime? _startTime;
+  TickerType _activeTicker = TickerType.ttalspi;
   bool _isInitialized = false;
-  Duration _elapsedDuration = Duration.zero;
 
-  // Initial simulated seed: 100,000 KRW (10만원 - 현실적이고 직관적인 시드머니)
-  final int _initialDeposit = 100000;
-  double _returnRate = 0.0;
+  // 딸스피 (DOSP) state
+  DateTime? _ttalspiStartTime;
+  double _ttalspiBasePoints = 0.0;
+  Duration _ttalspiElapsed = Duration.zero;
+  double _ttalspiPoints = 0.0;
+  Set<String> _ttalspiUnlockedIds = {};
+
+  // 야동스피 (YDSP) state
+  DateTime? _yadongspiStartTime;
+  double _yadongspiBasePoints = 0.0;
+  Duration _yadongspiElapsed = Duration.zero;
+  double _yadongspiPoints = 0.0;
+  Set<String> _yadongspiUnlockedIds = {};
+
   double _jitter = 0.0;
 
-  List<Achievement> _achievements = Achievement.getDefaultAchievements();
   List<LiquidationRecord> _liquidationHistory = [];
   bool _safariPromptDismissed = false;
 
@@ -49,22 +66,87 @@ class HodlProvider extends ChangeNotifier {
   // Chart data points
   List<FlSpot> _chartSpots = [];
 
+  int _circuitBreakerCount = 0;
+
   // Getters
   bool get isInitialized => _isInitialized;
-  DateTime? get startTime => _startTime;
-  Duration get elapsedDuration => _elapsedDuration;
-  int get initialDeposit => _initialDeposit;
-  double get returnRate => _returnRate;
-  int get currentValuation => (_initialDeposit * (1 + _returnRate / 100)).round();
-  int get profitAmount => currentValuation - _initialDeposit;
-  List<Achievement> get achievements => _achievements;
+  TickerType get activeTicker => _activeTicker;
+
+  // Active ticker specific getters
+  DateTime? get startTime =>
+      _activeTicker == TickerType.ttalspi ? _ttalspiStartTime : _yadongspiStartTime;
+
+  Duration get elapsedDuration =>
+      _activeTicker == TickerType.ttalspi ? _ttalspiElapsed : _yadongspiElapsed;
+
+  // Current index points (시작 0, 하루에 +1000P, 딸/야동 시 -2000P)
+  double get currentPoints =>
+      _activeTicker == TickerType.ttalspi ? _ttalspiPoints : _yadongspiPoints;
+
+  // Legacy compatibility getters for widgets expecting currency/rate
+  int get initialDeposit => 0; // 시작가 0
+  double get returnRate => currentPoints;
+  int get currentValuation => currentPoints.round();
+  int get profitAmount => currentPoints.round();
+
+  // Dual values for header ticker display
+  double get ttalspiPoints => _ttalspiPoints;
+  double get yadongspiPoints => _yadongspiPoints;
+  Duration get ttalspiElapsed => _ttalspiElapsed;
+  Duration get yadongspiElapsed => _yadongspiElapsed;
+
+  List<Achievement> getAchievementsFor(TickerType ticker) {
+    final unlockedSet =
+        ticker == TickerType.yadongspi ? _yadongspiUnlockedIds : _ttalspiUnlockedIds;
+    return Achievement.getDefaultAchievements().map((ach) {
+      if (unlockedSet.contains(ach.id)) {
+        return ach.copyWith(isUnlocked: true, unlockedAt: DateTime.now());
+      }
+      return ach;
+    }).toList();
+  }
+
+  List<Achievement> get achievements => getAchievementsFor(_activeTicker);
+
   List<LiquidationRecord> get liquidationHistory => _liquidationHistory;
   bool get safariPromptDismissed => _safariPromptDismissed;
   List<OrderBookItem> get liveOrders => _liveOrders;
   List<FlSpot> get chartSpots => _chartSpots;
-  HodlRank get currentRank => HodlRank.getRank(_elapsedDuration);
+  HodlRank get currentRank =>
+      HodlRank.getRank(elapsedDuration, ticker: _activeTicker);
+  int get circuitBreakerCount => _circuitBreakerCount;
 
-  int get unlockedCount => _achievements.where((a) => a.isUnlocked).length;
+  // Filtered achievements by active ticker category
+  List<Achievement> get currentTickerAchievements {
+    final cat = _activeTicker.name;
+    return achievements
+        .where((a) => a.category == 'all' || a.category == cat)
+        .toList();
+  }
+
+  int get unlockedCount =>
+      currentTickerAchievements.where((a) => a.isUnlocked).length;
+  int get totalCount => currentTickerAchievements.length;
+
+  int getUnlockedCountFor(TickerType ticker) {
+    final list = getAchievementsFor(ticker)
+        .where((a) => a.category == 'all' || a.category == ticker.name)
+        .toList();
+    return list.where((a) => a.isUnlocked).length;
+  }
+
+  int getTotalCountFor(TickerType ticker) {
+    return getAchievementsFor(ticker)
+        .where((a) => a.category == 'all' || a.category == ticker.name)
+        .length;
+  }
+
+  // Filtered liquidation history by active ticker
+  List<LiquidationRecord> get currentTickerHistory {
+    return _liquidationHistory
+        .where((r) => r.tickerType == _activeTicker.name)
+        .toList();
+  }
 
   HodlProvider() {
     _init();
@@ -73,31 +155,53 @@ class HodlProvider extends ChangeNotifier {
   Future<void> _init() async {
     final prefs = await SharedPreferences.getInstance();
 
-    final savedStartTimeStr = prefs.getString(_keyStartTime);
-    if (savedStartTimeStr != null) {
-      _startTime = DateTime.tryParse(savedStartTimeStr) ?? DateTime.now();
-    } else {
-      _startTime = DateTime.now();
-      await prefs.setString(_keyStartTime, _startTime!.toIso8601String());
+    // 1. Active ticker
+    final savedTickerName = prefs.getString(_keyActiveTicker);
+    if (savedTickerName != null) {
+      _activeTicker = TickerType.values.firstWhere(
+        (t) => t.name == savedTickerName,
+        orElse: () => TickerType.ttalspi,
+      );
     }
+
+    // 2. 딸스피 State
+    final ttalStartTimeStr = prefs.getString(_keyTtalspiStartTime);
+    if (ttalStartTimeStr != null) {
+      _ttalspiStartTime = DateTime.tryParse(ttalStartTimeStr) ?? DateTime.now();
+    } else {
+      _ttalspiStartTime = DateTime.now();
+      await prefs.setString(_keyTtalspiStartTime, _ttalspiStartTime!.toIso8601String());
+    }
+    _ttalspiBasePoints = prefs.getDouble(_keyTtalspiBasePoints) ?? 0.0;
+
+    // 3. 야동스피 State
+    final yadongStartTimeStr = prefs.getString(_keyYadongspiStartTime);
+    if (yadongStartTimeStr != null) {
+      _yadongspiStartTime = DateTime.tryParse(yadongStartTimeStr) ?? DateTime.now();
+    } else {
+      _yadongspiStartTime = DateTime.now();
+      await prefs.setString(_keyYadongspiStartTime, _yadongspiStartTime!.toIso8601String());
+    }
+    _yadongspiBasePoints = prefs.getDouble(_keyYadongspiBasePoints) ?? 0.0;
 
     _safariPromptDismissed = prefs.getBool(_keySafariDismissed) ?? false;
 
-    // Load Liquidation History
+    // 4. Liquidation History
     final historyListJson = prefs.getStringList(_keyHistory) ?? [];
     _liquidationHistory = historyListJson
         .map((str) => LiquidationRecord.fromJson(str))
         .toList()
         ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
-    // Load Achievements
-    final unlockedIds = prefs.getStringList(_keyAchievements) ?? [];
-    _achievements = _achievements.map((ach) {
-      if (unlockedIds.contains(ach.id)) {
-        return ach.copyWith(isUnlocked: true, unlockedAt: DateTime.now());
-      }
-      return ach;
-    }).toList();
+    // 5. Achievements migration & load
+    final legacyUnlocked = prefs.getStringList(_keyAchievements) ?? [];
+    final ttalUnlocked =
+        prefs.getStringList(_keyTtalspiAchievements) ?? legacyUnlocked;
+    final yadongUnlocked =
+        prefs.getStringList(_keyYadongspiAchievements) ?? [];
+
+    _ttalspiUnlockedIds = ttalUnlocked.toSet();
+    _yadongspiUnlockedIds = yadongUnlocked.toSet();
 
     _updateCalculations();
     _generateInitialOrders();
@@ -113,9 +217,19 @@ class HodlProvider extends ChangeNotifier {
     });
   }
 
-  void _tick() {
-    if (_startTime == null) return;
+  void switchTicker(TickerType ticker) async {
+    if (_activeTicker == ticker) return;
+    _activeTicker = ticker;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyActiveTicker, ticker.name);
 
+    _updateCalculations();
+    _generateInitialOrders();
+    _buildChartSpots();
+    notifyListeners();
+  }
+
+  void _tick() {
     _updateCalculations();
 
     // Occasional subtle fluctuation for live market effect
@@ -136,37 +250,24 @@ class HodlProvider extends ChangeNotifier {
   }
 
   void _updateCalculations() {
-    if (_startTime == null) return;
-    _elapsedDuration = DateTime.now().difference(_startTime!);
+    final now = DateTime.now();
 
-    final totalSeconds = _elapsedDuration.inSeconds;
-    final totalMinutes = totalSeconds / 60.0;
-    final totalHours = totalMinutes / 60.0;
-    final totalDays = totalHours / 24.0;
+    // Rate: 1000 points per day = 1000 / 86400 points per second
+    const double pointsPerSecond = 1000.0 / 86400.0;
 
-    // Rebalanced Growth Formula:
-    // 0-60초: 0% ~ +0.3%
-    // 1시간: 약 +3.0%
-    // 24시간(1일): 딱 +30.0% (국내 일일 상한가 제한폭 안착)
-    // 7일(일주일): 약 +135.0% (원금 2배 이상 떡상)
-    // 30일(한 달): 약 +296.0% (수익률 약 3배)
-    // 30일 이후: 로그 스케일로 완만하게 증가하여 수십억 인플레이션 방지
-    double baseRate;
-    if (totalSeconds < 60) {
-      baseRate = totalSeconds * 0.005;
-    } else if (totalMinutes < 60) {
-      baseRate = 0.3 + (totalMinutes * 0.045);
-    } else if (totalHours < 24) {
-      baseRate = 3.0 + ((totalHours - 1) * 1.17);
-    } else if (totalDays < 7) {
-      baseRate = 30.0 + ((totalDays - 1) * 17.5);
-    } else if (totalDays < 30) {
-      baseRate = 135.0 + ((totalDays - 7) * 7.0);
-    } else {
-      baseRate = 296.0 + (log(totalDays - 29) * 35.0);
+    // 1. 딸스피 계산
+    if (_ttalspiStartTime != null) {
+      _ttalspiElapsed = now.difference(_ttalspiStartTime!);
+      final accumulated = _ttalspiElapsed.inSeconds * pointsPerSecond;
+      _ttalspiPoints = _ttalspiBasePoints + accumulated;
     }
 
-    _returnRate = max(0.0, baseRate + _jitter);
+    // 2. 야동스피 계산
+    if (_yadongspiStartTime != null) {
+      _yadongspiElapsed = now.difference(_yadongspiStartTime!);
+      final accumulated = _yadongspiElapsed.inSeconds * pointsPerSecond;
+      _yadongspiPoints = _yadongspiBasePoints + accumulated;
+    }
   }
 
   void _buildChartSpots() {
@@ -174,7 +275,7 @@ class HodlProvider extends ChangeNotifier {
   }
 
   List<FlSpot> getSpotsForPeriod(int periodIndex) {
-    final effectiveRate = max(15.0, _returnRate);
+    final effectivePoints = max(10.0, currentPoints);
     final List<FlSpot> spots = [];
 
     switch (periodIndex) {
@@ -183,13 +284,13 @@ class HodlProvider extends ChangeNotifier {
           0.85, 0.90, 0.95, 0.72, 0.68, 0.79, 0.88, 0.97, 0.92, 1.05, 0.98, 1.00
         ];
         for (int i = 0; i < factors.length; i++) {
-          double y = effectiveRate * factors[i];
+          double y = effectivePoints * factors[i];
           if (i == factors.length - 1) {
-            y = _returnRate;
+            y = currentPoints;
           } else {
             y += (i % 2 == 0 ? _jitter : -_jitter);
           }
-          spots.add(FlSpot(i.toDouble(), max(0.5, y)));
+          spots.add(FlSpot(i.toDouble(), max(0.0, y)));
         }
         break;
 
@@ -198,9 +299,9 @@ class HodlProvider extends ChangeNotifier {
           0.45, 0.62, 0.42, 0.68, 0.44, 0.75, 0.86, 0.80, 0.94, 1.00
         ];
         for (int i = 0; i < factors.length; i++) {
-          double y = effectiveRate * factors[i];
-          if (i == factors.length - 1) y = _returnRate;
-          spots.add(FlSpot(i.toDouble(), max(0.5, y)));
+          double y = effectivePoints * factors[i];
+          if (i == factors.length - 1) y = currentPoints;
+          spots.add(FlSpot(i.toDouble(), max(0.0, y)));
         }
         break;
 
@@ -209,9 +310,9 @@ class HodlProvider extends ChangeNotifier {
           0.15, 0.16, 0.38, 0.35, 0.64, 0.61, 0.88, 1.00
         ];
         for (int i = 0; i < factors.length; i++) {
-          double y = effectiveRate * factors[i];
-          if (i == factors.length - 1) y = _returnRate;
-          spots.add(FlSpot(i.toDouble(), max(0.5, y)));
+          double y = effectivePoints * factors[i];
+          if (i == factors.length - 1) y = currentPoints;
+          spots.add(FlSpot(i.toDouble(), max(0.0, y)));
         }
         break;
 
@@ -219,9 +320,9 @@ class HodlProvider extends ChangeNotifier {
       default:
         final factors = [0.05, 0.14, 0.28, 0.48, 0.74, 1.00];
         for (int i = 0; i < factors.length; i++) {
-          double y = effectiveRate * factors[i];
-          if (i == factors.length - 1) y = _returnRate;
-          spots.add(FlSpot(i.toDouble(), max(0.5, y)));
+          double y = effectivePoints * factors[i];
+          if (i == factors.length - 1) y = currentPoints;
+          spots.add(FlSpot(i.toDouble(), max(0.0, y)));
         }
         break;
     }
@@ -230,40 +331,50 @@ class HodlProvider extends ChangeNotifier {
   }
 
   String getPeriodCommentary(int periodIndex) {
+    final isYadong = _activeTicker == TickerType.yadongspi;
     switch (periodIndex) {
       case 0:
-        return '🚨 [1분봉] 세력의 인스타 덤핑 공격(-28%) 발생! 지지선에서 V자 반등 중 📈';
+        return isYadong
+            ? '🚨 [1분봉] 트위터/시크릿탭 덤핑 유혹(-200P) 발생! 방화벽 켜고 반등 중 📈'
+            : '🚨 [1분봉] 세력의 인스타 덤핑 공격 발생! 지지선에서 V자 반등 중 📈';
       case 1:
-        return '📊 [10분봉] 쌍바닥(W패턴) 지지선 구축 완료, 악성 매도 물량 전량 소화';
+        return isYadong
+            ? '📊 [10분봉] 음란마귀 매도 물량 전량 소화, 청정 전두엽 지지선 견고'
+            : '📊 [10분봉] 쌍바닥(W패턴) 지지선 구축 완료, 악성 매도 물량 전량 소화';
       case 2:
-        return '🚀 [일봉] 횡보 매집 끝! 거래량 터지며 전고점 돌파 장대양봉 출현';
+        return isYadong
+            ? '🚀 [일봉] 하루 +1,000P 안착! 시크릿탭 영구 봉인 장대양봉 출현'
+            : '🚀 [일봉] 횡보 매집 끝! 하루 +1,000P 돌파 장대양봉 출현';
       case 3:
       default:
-        return '💎 [주봉] 월가 세력도 두 손 든 다이아몬드 고추 대세 상승 랠리';
+        return isYadong
+            ? '💎 [주봉] 7일 연속 노야동! 뇌 가소성 완벽 정상화 대세 랠리'
+            : '💎 [주봉] 월가 세력도 두 손 든 다이아몬드 고추 대세 상승 랠리';
     }
   }
 
   String getEventLabel(int periodIndex, int spotIndex) {
+    final isYadong = _activeTicker == TickerType.yadongspi;
     if (periodIndex == 0) {
-      // 1분봉 이벤트
-      if (spotIndex == 3 || spotIndex == 4) return '🚨 세력의 릴스 투하 폭락';
-      if (spotIndex == 5 || spotIndex == 6) return '🛡️ 폰 던지고 푸쉬업 반등';
+      if (spotIndex == 3 || spotIndex == 4) {
+        return isYadong ? '🚨 시크릿탭 켜려다 끔' : '🚨 세력의 릴스 투하 폭락';
+      }
+      if (spotIndex == 5 || spotIndex == 6) {
+        return isYadong ? '🛡️ 브라우저 끄고 찬물 한 잔' : '🛡️ 폰 던지고 푸쉬업 반등';
+      }
       if (spotIndex == 9) return '🔥 신고가 돌파 폭등';
       if (spotIndex == 11) return '● 실시간 호가';
       return 'T-${(11 - spotIndex)}분';
     } else if (periodIndex == 1) {
-      // 10분봉 이벤트
-      if (spotIndex == 2) return '1차 저점 (충동 위기)';
+      if (spotIndex == 2) return '1차 저점 (유혹 위기)';
       if (spotIndex == 4) return '2차 쌍바닥 지지';
       if (spotIndex == 9) return '● 현재가';
       return 'T-${(9 - spotIndex) * 10}분';
     } else if (periodIndex == 2) {
-      // 일봉
-      if (spotIndex == 2) return '상한가 돌파';
+      if (spotIndex == 2) return '+1,000P 돌파';
       if (spotIndex == 7) return '● 오늘';
       return 'D-${7 - spotIndex}';
     } else {
-      // 주봉
       if (spotIndex == 5) return '● 이번 주';
       return 'W-${5 - spotIndex}';
     }
@@ -271,37 +382,65 @@ class HodlProvider extends ChangeNotifier {
 
   void _generateInitialOrders() {
     _liveOrders.clear();
-    final sampleOrders = [
-      OrderBookItem(time: '방금', title: '금딸 3일차 게이', amount: '피부에 광 돌기 시작함 (+120%)', isBuy: true),
-      OrderBookItem(time: '1분 전', title: '헬창 홀더', amount: '폰 집어던지고 푸쉬업 50개 완료', isBuy: true),
-      OrderBookItem(time: '2분 전', title: '뇌내 세력', amount: '인스타 릴스 덤핑 공격 방어 성공', isBuy: false),
-      OrderBookItem(time: '3분 전', title: '다이아몬드 손', amount: '+1,200,000 NOFAP 풀매수', isBuy: true),
-      OrderBookItem(time: '5분 전', title: '찬물샤워 장인', amount: '쿠퍼액 분비 전량 차단 완료', isBuy: true),
-    ];
+    final isYadong = _activeTicker == TickerType.yadongspi;
+    final sampleOrders = isYadong
+        ? [
+            OrderBookItem(time: '방금', title: '노야동 2일차 게이', amount: '시크릿탭 0개 유지 중 (+2,000P)', isBuy: true),
+            OrderBookItem(time: '1분 전', title: '클린 브라우저', amount: '트위터 야동 검색 차단 성공', isBuy: true),
+            OrderBookItem(time: '2분 전', title: '전두엽 수호대', amount: '폰 내려놓고 책 30페이지 독서', isBuy: true),
+            OrderBookItem(time: '3분 전', title: '청정 갓생러', amount: '야동스피 +1,000P 풀매수', isBuy: true),
+            OrderBookItem(time: '5분 전', title: '퇴마사 홀더', amount: '음란마귀 침투 전량 방어 완료', isBuy: true),
+          ]
+        : [
+            OrderBookItem(time: '방금', title: '금딸 3일차 게이', amount: '피부에 광 돌기 시작함 (+3,000P)', isBuy: true),
+            OrderBookItem(time: '1분 전', title: '헬창 홀더', amount: '폰 집어던지고 푸쉬업 50개 완료', isBuy: true),
+            OrderBookItem(time: '2분 전', title: '뇌내 세력', amount: '인스타 릴스 덤핑 공격 방어 성공', isBuy: false),
+            OrderBookItem(time: '3분 전', title: '다이아몬드 손', amount: '+1,000P 딸스피 풀매수', isBuy: true),
+            OrderBookItem(time: '5분 전', title: '찬물샤워 장인', amount: '쿠퍼액 분비 전량 차단 완료', isBuy: true),
+          ];
     _liveOrders.addAll(sampleOrders);
   }
 
   void _addSimulatedLiveTrade() {
-    final buyTitles = [
-      '금딸 5일차 게이', '다이아몬드 고추', '갓생 현자', '찬물샤워 전도사', '헬스장 상주인', '테스토스테론 괴물'
-    ];
-    final buyActions = [
-      '폰 던지고 스쿼트 30개 매수 (+50%)',
-      '눈빛에서 레이저 나오는 중 (상한가)',
-      '여사친이 먼저 말 걸었다 이기 (+800%)',
-      '+1,500,000 NOFAP 영구 락업',
-      '휴지통 전량 폐기 처분 완료'
-    ];
-    final defenseActions = [
-      '새벽 2시 트위터 검색 유혹 덤핑 방어',
-      '침대 눕방 중 바지 침투 손가락 격퇴',
-      '음란물 사이트 접속 차단 방화벽 가동',
-      '현타 직전 서킷브레이커 멘탈 수성'
-    ];
+    final isYadong = _activeTicker == TickerType.yadongspi;
+    final buyTitles = isYadong
+        ? ['노야동 3일차', '시크릿탭 분쇄자', '청정 전두엽', '트위터 삭제러', '현실 집중가']
+        : ['금딸 5일차 게이', '다이아몬드 고추', '갓생 현자', '찬물샤워 전도사', '헬스장 상주인'];
+
+    final buyActions = isYadong
+        ? [
+            '폰 던지고 스쿼트 30개 매수 (+50P)',
+            '시크릿 모드 대신 플러터 공부 (+200P)',
+            '눈빛이 또렷해지고 집중력 떡상',
+            '+1,000P 야동스피 추가 락업',
+            '브라우저 북마크 전량 삭제 완료'
+          ]
+        : [
+            '폰 던지고 스쿼트 30개 매수 (+50P)',
+            '눈빛에서 레이저 나오는 중 (상한가)',
+            '여사친이 먼저 말 걸었다 이기 (+800P)',
+            '+1,000P 딸스피 영구 락업',
+            '휴지통 전량 폐기 처분 완료'
+          ];
+
+    final defenseActions = isYadong
+        ? [
+            '새벽 2시 폰허브 북마크 유혹 덤핑 방어',
+            '인스타 돋보기 여캠 릴스 차단 필터 가동',
+            '시크릿창 켜려던 손가락 응급 물리치료',
+            '음란마귀 속삭임 차단 방화벽 가동'
+          ]
+        : [
+            '새벽 2시 트위터 검색 유혹 덤핑 방어',
+            '침대 눕방 중 바지 침투 손가락 격퇴',
+            '음란물 사이트 접속 차단 방화벽 가동',
+            '현타 직전 서킷브레이커 멘탈 수성'
+          ];
 
     final isPositive = _random.nextDouble() > 0.15;
     final now = DateTime.now();
-    final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+    final timeStr =
+        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
 
     if (isPositive) {
       final title = buyTitles[_random.nextInt(buyTitles.length)];
@@ -317,43 +456,79 @@ class HodlProvider extends ChangeNotifier {
     }
   }
 
-  int _circuitBreakerCount = 0;
-  int get circuitBreakerCount => _circuitBreakerCount;
-
   Future<void> _checkAutomaticAchievements() async {
-    final minutes = _elapsedDuration.inMinutes;
-    final hours = _elapsedDuration.inHours;
+    // 1. 딸스피 자동 체크
+    final ttalMin = _ttalspiElapsed.inMinutes;
+    final ttalHrs = _ttalspiElapsed.inHours;
 
-    // 1. 초기 및 시간 단위
-    if (minutes >= 10) await unlockAchievement('FIRST_CANDLE');
-    if (minutes >= 30) await unlockAchievement('MIN_30');
-    if (hours >= 1) await unlockAchievement('HOUR_HOLDER');
-    if (hours >= 3) await unlockAchievement('HOUR_3');
-    if (hours >= 6) await unlockAchievement('HOUR_6');
-    if (hours >= 12) await unlockAchievement('HOUR_12');
+    if (ttalMin >= 10) await unlockAchievement('FIRST_CANDLE', ticker: TickerType.ttalspi);
+    if (ttalMin >= 30) await unlockAchievement('MIN_30', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 1) await unlockAchievement('HOUR_HOLDER', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 3) await unlockAchievement('HOUR_3', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 6) await unlockAchievement('HOUR_6', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 12) await unlockAchievement('HOUR_12', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 24) await unlockAchievement('UPPER_LIMIT', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 48) await unlockAchievement('WEEKEND_SHIELD', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 72) await unlockAchievement('DAY_3', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 96) await unlockAchievement('DAY_4', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 120) await unlockAchievement('DAY_5', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 168) await unlockAchievement('STEEL_MENTAL', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 240) await unlockAchievement('DAY_10', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 336) await unlockAchievement('DAY_14', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 504) await unlockAchievement('DAY_21', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 720) await unlockAchievement('DAY_30', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 1200) await unlockAchievement('DAY_50', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 2400) await unlockAchievement('DAY_100', ticker: TickerType.ttalspi);
 
-    // 2. 일 단위 돌파
-    if (hours >= 24) await unlockAchievement('UPPER_LIMIT');
-    if (hours >= 48) await unlockAchievement('WEEKEND_SHIELD');
-    if (hours >= 72) await unlockAchievement('DAY_3');
-    if (hours >= 96) await unlockAchievement('DAY_4');
-    if (hours >= 120) await unlockAchievement('DAY_5');
-    if (hours >= 168) await unlockAchievement('STEEL_MENTAL'); // 7 days
-    if (hours >= 240) await unlockAchievement('DAY_10');
-    if (hours >= 336) await unlockAchievement('DAY_14');
-    if (hours >= 504) await unlockAchievement('DAY_21');
-    if (hours >= 720) await unlockAchievement('DAY_30');
-    if (hours >= 1200) await unlockAchievement('DAY_50');
-    if (hours >= 2400) await unlockAchievement('DAY_100');
+    // 딸스피 포인트 마일스톤
+    if (_ttalspiPoints >= 100.0) await unlockAchievement('RETURN_10', ticker: TickerType.ttalspi);
+    if (_ttalspiPoints >= 500.0) await unlockAchievement('RETURN_50', ticker: TickerType.ttalspi);
+    if (_ttalspiPoints >= 1000.0) await unlockAchievement('WHALE_CLUB', ticker: TickerType.ttalspi);
+    if (_ttalspiPoints >= 2000.0) await unlockAchievement('RETURN_200', ticker: TickerType.ttalspi);
+    if (_ttalspiPoints >= 5000.0) await unlockAchievement('RETURN_500', ticker: TickerType.ttalspi);
 
-    // 3. 수익률 단위
-    if (_returnRate >= 10.0) await unlockAchievement('RETURN_10');
-    if (_returnRate >= 50.0) await unlockAchievement('RETURN_50');
-    if (_returnRate >= 100.0) await unlockAchievement('WHALE_CLUB');
-    if (_returnRate >= 200.0) await unlockAchievement('RETURN_200');
-    if (_returnRate >= 500.0) await unlockAchievement('RETURN_500');
+    // 딸스피 행동 마일스톤
+    if (ttalHrs >= 2) await unlockAchievement('CLEAN_BROWSER', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 5) await unlockAchievement('PAPER_HAND_SHAME', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 18) await unlockAchievement('COLD_SHOWER', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 36) await unlockAchievement('DUMBBELL_REP', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 60) await unlockAchievement('MIRROR_SLAP', ticker: TickerType.ttalspi);
+    if (ttalHrs >= 144) await unlockAchievement('GIGA_CHAD', ticker: TickerType.ttalspi);
 
-    // 4. 현실 시간대 트리거 (새벽 / 아침)
+    // 2. 야동스피 자동 체크
+    final ydMin = _yadongspiElapsed.inMinutes;
+    final ydHrs = _yadongspiElapsed.inHours;
+
+    await unlockAchievement('YD_INCOGNITO_0S', ticker: TickerType.yadongspi);
+    if (ydMin >= 10) await unlockAchievement('YD_SECRET_10M', ticker: TickerType.yadongspi);
+    if (ydMin >= 30) await unlockAchievement('YD_MIN_30', ticker: TickerType.yadongspi);
+    if (ydHrs >= 1) await unlockAchievement('YD_HOUR_1', ticker: TickerType.yadongspi);
+    if (ydHrs >= 3) await unlockAchievement('YD_TWITTER_DELETE', ticker: TickerType.yadongspi);
+    if (ydHrs >= 6) await unlockAchievement('YD_HOUR_6', ticker: TickerType.yadongspi);
+    if (ydHrs >= 12) await unlockAchievement('YD_HOUR_12', ticker: TickerType.yadongspi);
+    if (ydHrs >= 24) await unlockAchievement('YD_CLEAN_24H', ticker: TickerType.yadongspi);
+    if (ydHrs >= 48) await unlockAchievement('YD_DAY_2', ticker: TickerType.yadongspi);
+    if (ydHrs >= 72) await unlockAchievement('YD_DOPAMINE_DETOX', ticker: TickerType.yadongspi);
+    if (ydHrs >= 96) await unlockAchievement('YD_DAY_4', ticker: TickerType.yadongspi);
+    if (ydHrs >= 120) await unlockAchievement('YD_DAY_5', ticker: TickerType.yadongspi);
+    if (ydHrs >= 168) await unlockAchievement('YD_MONK_7D', ticker: TickerType.yadongspi);
+    if (ydHrs >= 240) await unlockAchievement('YD_DAY_10', ticker: TickerType.yadongspi);
+    if (ydHrs >= 336) await unlockAchievement('YD_DAY_14', ticker: TickerType.yadongspi);
+    if (ydHrs >= 720) await unlockAchievement('YD_DAY_30', ticker: TickerType.yadongspi);
+
+    // 야동스피 포인트 마일스톤
+    if (_yadongspiPoints >= 500.0) await unlockAchievement('YD_POINTS_500', ticker: TickerType.yadongspi);
+    if (_yadongspiPoints >= 1000.0) await unlockAchievement('YD_CLEAN_24H', ticker: TickerType.yadongspi);
+    if (_yadongspiPoints >= 2000.0) await unlockAchievement('YD_POINTS_2000', ticker: TickerType.yadongspi);
+    if (_yadongspiPoints >= 5000.0) await unlockAchievement('YD_POINTS_5000', ticker: TickerType.yadongspi);
+
+    // 야동스피 행동 마일스톤
+    if (ydHrs >= 2) await unlockAchievement('YD_CLEAN_HISTORY', ticker: TickerType.yadongspi);
+    if (ydHrs >= 4) await unlockAchievement('YD_BOOKMARK_PURGE', ticker: TickerType.yadongspi);
+    if (ydHrs >= 8) await unlockAchievement('YD_COLD_WATER', ticker: TickerType.yadongspi);
+    if (ydHrs >= 16) await unlockAchievement('YD_PUSHUP_DEFENSE', ticker: TickerType.yadongspi);
+
+    // 현실 시간대 트리거 (새벽 / 아침)
     final currentHour = DateTime.now().hour;
     if (currentHour >= 2 && currentHour <= 3) {
       await unlockAchievement('MIDNIGHT_SAVIOR');
@@ -363,17 +538,8 @@ class HodlProvider extends ChangeNotifier {
       await unlockAchievement('MORNING_WOOD');
     }
 
-    // 5. 심리 & 돌발 행동 마일스톤
-    if (hours >= 2) await unlockAchievement('CLEAN_BROWSER');
-    if (hours >= 5) await unlockAchievement('PAPER_HAND_SHAME');
-    if (hours >= 18) await unlockAchievement('COLD_SHOWER');
-    if (hours >= 36) await unlockAchievement('DUMBBELL_REP');
-    if (hours >= 60) await unlockAchievement('MIRROR_SLAP');
-    if (hours >= 144) await unlockAchievement('GIGA_CHAD');
-
-    // 6. 상폐/환생 횟수 마일스톤
-    if (_liquidationHistory.length >= 5) {
-      await unlockAchievement('PHOENIX_5');
+    if (_liquidationHistory.where((r) => r.tickerType == 'ttalspi').length >= 5) {
+      await unlockAchievement('PHOENIX_5', ticker: TickerType.ttalspi);
     }
   }
 
@@ -381,20 +547,19 @@ class HodlProvider extends ChangeNotifier {
     await unlockAchievement('CHART_OBSESSED');
   }
 
-  Future<void> unlockAchievement(String id) async {
-    final index = _achievements.indexWhere((a) => a.id == id);
-    if (index != -1 && !_achievements[index].isUnlocked) {
-      _achievements[index] = _achievements[index].copyWith(
-        isUnlocked: true,
-        unlockedAt: DateTime.now(),
-      );
+  Future<void> unlockAchievement(String id, {TickerType? ticker}) async {
+    final targetTicker = ticker ?? _activeTicker;
+    final isYadong = targetTicker == TickerType.yadongspi;
+    final targetSet = isYadong ? _yadongspiUnlockedIds : _ttalspiUnlockedIds;
 
+    if (!targetSet.contains(id)) {
+      targetSet.add(id);
       final prefs = await SharedPreferences.getInstance();
-      final unlockedIds = _achievements
-          .where((a) => a.isUnlocked)
-          .map((a) => a.id)
-          .toList();
-      await prefs.setStringList(_keyAchievements, unlockedIds);
+      if (isYadong) {
+        await prefs.setStringList(_keyYadongspiAchievements, targetSet.toList());
+      } else {
+        await prefs.setStringList(_keyTtalspiAchievements, targetSet.toList());
+      }
       notifyListeners();
     }
   }
@@ -413,50 +578,70 @@ class HodlProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Panic Sell / Liquidation (상장폐지 및 리셋)
+  // Panic Sell / Liquidation (상장폐지 및 -2,000P 폭락)
   Future<void> panicSellAndLiquidate({
     required String reason,
     required String note,
   }) async {
-    // 1. 달성했던 업적 목록 수집 (박제용)
-    final achievedBadges = _achievements
+    final isYadong = _activeTicker == TickerType.yadongspi;
+    final now = DateTime.now();
+
+    // 1. 이번 종목 달성 업적 목록 수집 (박제용)
+    final achievedBadges = currentTickerAchievements
         .where((a) => a.isUnlocked)
         .map((a) => '${a.icon} ${a.title}')
         .toList();
 
     final record = LiquidationRecord(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      timestamp: DateTime.now(),
-      durationHeld: _elapsedDuration,
-      returnRateAchieved: _returnRate,
-      simulatedLossAmount: profitAmount > 0 ? profitAmount : _initialDeposit,
+      id: now.millisecondsSinceEpoch.toString(),
+      timestamp: now,
+      durationHeld: elapsedDuration,
+      returnRateAchieved: currentPoints,
+      simulatedLossAmount: 2000, // 패닉셀 시 -2,000P 감점 손실
       reason: reason,
       note: note,
       achievedBadges: achievedBadges,
+      tickerType: _activeTicker.name,
     );
 
     _liquidationHistory.insert(0, record);
 
-    // 2. 명예의 전당(도전과제) 초기화 (새로운 코인 시즌 시작)
-    _achievements = Achievement.getDefaultAchievements();
-
-    // Reset Start Time to NOW
-    _startTime = DateTime.now();
-    _elapsedDuration = Duration.zero;
-    _returnRate = 0.0;
-    _jitter = 0.0;
-
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_keyStartTime, _startTime!.toIso8601String());
 
+    // 2. 포인트 -2000P 적용 및 타이머 재설정 (독립적 처리)
+    if (isYadong) {
+      _yadongspiBasePoints = _yadongspiPoints - 2000.0;
+      _yadongspiStartTime = now;
+      _yadongspiElapsed = Duration.zero;
+      _yadongspiPoints = _yadongspiBasePoints;
+      await prefs.setDouble(_keyYadongspiBasePoints, _yadongspiBasePoints);
+      await prefs.setString(_keyYadongspiStartTime, now.toIso8601String());
+
+      // 야동스피 도전과제만 리셋
+      _yadongspiUnlockedIds.clear();
+      await prefs.setStringList(_keyYadongspiAchievements, []);
+
+      // 부활 업적 부여
+      await unlockAchievement('YD_RESURRECTION', ticker: TickerType.yadongspi);
+    } else {
+      _ttalspiBasePoints = _ttalspiPoints - 2000.0;
+      _ttalspiStartTime = now;
+      _ttalspiElapsed = Duration.zero;
+      _ttalspiPoints = _ttalspiBasePoints;
+      await prefs.setDouble(_keyTtalspiBasePoints, _ttalspiBasePoints);
+      await prefs.setString(_keyTtalspiStartTime, now.toIso8601String());
+
+      // 딸스피 도전과제만 리셋
+      _ttalspiUnlockedIds.clear();
+      await prefs.setStringList(_keyTtalspiAchievements, []);
+
+      // 부활 업적 부여
+      await unlockAchievement('RESURRECTION', ticker: TickerType.ttalspi);
+    }
+
+    // 3. 회고록 저장
     final historyJsonList = _liquidationHistory.map((r) => r.toJson()).toList();
     await prefs.setStringList(_keyHistory, historyJsonList);
-
-    // Save reset achievements (초기화 저장)
-    await prefs.setStringList(_keyAchievements, []);
-
-    // Resurrection achievement if they restart
-    await unlockAchievement('RESURRECTION');
 
     _updateCalculations();
     _buildChartSpots();

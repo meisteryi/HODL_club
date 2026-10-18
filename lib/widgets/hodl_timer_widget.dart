@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
+import '../models/ticker_type.dart';
 import '../providers/hodl_provider.dart';
 
 class HodlTimerWidget extends StatelessWidget {
@@ -29,13 +30,13 @@ class HodlTimerWidget extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Row(
+              Row(
                 children: [
-                  Icon(Icons.lock_clock, color: AppColors.gold, size: 16),
-                  SizedBox(width: 6),
+                  const Icon(Icons.lock_clock, color: AppColors.gold, size: 16),
+                  const SizedBox(width: 6),
                   Text(
-                    '실시간 금딸(무발사) 존버 타이머',
-                    style: TextStyle(
+                    provider.activeTicker.timerLabel,
+                    style: const TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
@@ -49,9 +50,9 @@ class HodlTimerWidget extends StatelessWidget {
                   color: AppColors.darkGreen,
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: const Text(
-                  '손 묶고 버티는 중 🔒',
-                  style: TextStyle(
+                child: Text(
+                  provider.activeTicker.timerStatus,
+                  style: const TextStyle(
                     color: AppColors.neonGreen,
                     fontSize: 10,
                     fontWeight: FontWeight.w600,

@@ -30,20 +30,26 @@ class HodlTimerWidget extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  const Icon(Icons.lock_clock, color: AppColors.gold, size: 16),
-                  const SizedBox(width: 6),
-                  Text(
-                    provider.activeTicker.timerLabel,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
+              Expanded(
+                child: Row(
+                  children: [
+                    const Icon(Icons.lock_clock, color: AppColors.gold, size: 16),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        provider.activeTicker.timerLabel,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 6),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(

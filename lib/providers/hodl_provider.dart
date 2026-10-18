@@ -34,9 +34,11 @@ class HodlProvider extends ChangeNotifier {
   static const String _keyTtalspiAchievements = 'hodl_ttalspi_unlocked_achievements';
   static const String _keyYadongspiAchievements = 'hodl_yadongspi_unlocked_achievements';
   static const String _keySafariDismissed = 'hodl_safari_dismissed';
+  static const String _keyIsLeverage2x = 'hodl_is_leverage_2x';
 
   TickerType _activeTicker = TickerType.ttalspi;
   bool _isInitialized = false;
+  bool _isLeverage2x = false;
 
   // 딸스피 (DOSP) state
   DateTime? _ttalspiStartTime;
@@ -85,6 +87,7 @@ class HodlProvider extends ChangeNotifier {
   // Getters
   bool get isInitialized => _isInitialized;
   TickerType get activeTicker => _activeTicker;
+  bool get isLeverage2x => _isLeverage2x;
 
   // Active ticker specific getters
   DateTime? get startTime =>
@@ -202,6 +205,7 @@ class HodlProvider extends ChangeNotifier {
     _yadongspiBasePoints = prefs.getDouble(_keyYadongspiBasePoints) ?? 0.0;
 
     _safariPromptDismissed = prefs.getBool(_keySafariDismissed) ?? false;
+    _isLeverage2x = prefs.getBool(_keyIsLeverage2x) ?? false;
 
     // 4. Liquidation History
     final historyListJson = prefs.getStringList(_keyHistory) ?? [];
@@ -247,6 +251,51 @@ class HodlProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> toggleLeverage() async {
+    final now = DateTime.now();
+    // Snapshot base points so switching leverage rate preserves previously accumulated points
+    _updateCalculations();
+    _ttalspiBasePoints = _ttalspiPoints;
+    _ttalspiStartTime = now;
+    _yadongspiBasePoints = _yadongspiPoints;
+    _yadongspiStartTime = now;
+
+    _isLeverage2x = !_isLeverage2x;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyIsLeverage2x, _isLeverage2x);
+    await prefs.setDouble(_keyTtalspiBasePoints, _ttalspiBasePoints);
+    await prefs.setString(_keyTtalspiStartTime, now.toIso8601String());
+    await prefs.setDouble(_keyYadongspiBasePoints, _yadongspiBasePoints);
+    await prefs.setString(_keyYadongspiStartTime, now.toIso8601String());
+
+    if (_isLeverage2x) {
+      _liveOrders.insert(
+        0,
+        OrderBookItem(
+          time: '방금',
+          title: '야수의 심장',
+          amount: '신용 2X 풀미수 몰빵!! 뇌 녹아내리는 중 ㅋㅋㅋ',
+          isBuy: true,
+        ),
+      );
+    } else {
+      _liveOrders.insert(
+        0,
+        OrderBookItem(
+          time: '방금',
+          title: '쫄보 갤러',
+          amount: '1X 정석 존버 모드로 안전 복귀',
+          isBuy: true,
+        ),
+      );
+    }
+
+    _updateCalculations();
+    _buildChartSpots();
+    notifyListeners();
+  }
+
   void _tick() {
     _updateCalculations();
 
@@ -270,8 +319,9 @@ class HodlProvider extends ChangeNotifier {
   void _updateCalculations() {
     final now = DateTime.now();
 
-    // Rate: 1000 points per day = 1000 / 86400 points per second
-    const double pointsPerSecond = 1000.0 / 86400.0;
+    // 1X: 1000 P / day, 2X Leverage: 2000 P / day
+    final double multiplier = _isLeverage2x ? 2.0 : 1.0;
+    final double pointsPerSecond = (1000.0 / 86400.0) * multiplier;
 
     // 1. 딸스피 계산
     if (_ttalspiStartTime != null) {
@@ -357,14 +407,14 @@ class HodlProvider extends ChangeNotifier {
   String getPeriodCommentary(int periodIndex) {
     switch (periodIndex) {
       case 0:
-        return '🚨 [1분봉] 실시간 유혹 덤핑 방어 중! 통합 테스토스테론 V자 반등 📈';
+        return '🚨 [1분봉] 실시간 유혹 덤핑 방어 중! 테스토스테론 떡상 V자 반등 📈';
       case 1:
-        return '📊 [10분봉] 쌍바닥(W패턴) 지지선 구축 완료, 매도 물량 전량 소화';
+        return '📊 [10분봉] 쌍바닥(W패턴) 개미털기 끝났다 이기, 매도 물량 전량 소화';
       case 2:
-        return '🚀 [일봉] 딸스피+야동스피 동반 매집! 장대양봉 폭등 랠리';
+        return '🚀 [일봉] 딸스피+야동스피 동반 매집! 장대양봉 폭등 랠리 가즈아';
       case 3:
       default:
-        return '💎 [주봉] 7일차 테스토스테론 145.7% 피크 연구 모티브 대세 랠리';
+        return '💎 [주봉] 7일차 테스토스테론 145.7% 피크! 야수의 심장 대세 폭등';
     }
   }
 
@@ -372,12 +422,12 @@ class HodlProvider extends ChangeNotifier {
     final isYadong = _activeTicker == TickerType.yadongspi;
     if (periodIndex == 0) {
       if (spotIndex == 3 || spotIndex == 4) {
-        return isYadong ? '🚨 시크릿탭 켜려다 끔' : '🚨 세력의 릴스 투하 폭락';
+        return isYadong ? '🚨 시크릿탭 켤 뻔하다 대가리 깸' : '🚨 세력의 여캠 릴스 융단폭격';
       }
       if (spotIndex == 5 || spotIndex == 6) {
-        return isYadong ? '🛡️ 브라우저 끄고 찬물 한 잔' : '🛡️ 폰 던지고 푸쉬업 반등';
+        return isYadong ? '🛡️ 브라우저 끄고 찬물 한 사발' : '🛡️ 폰 집어던지고 푸쉬업 50개';
       }
-      if (spotIndex == 9) return '🔥 신고가 돌파 폭등';
+      if (spotIndex == 9) return '🔥 신고가 돌파 가즈아';
       if (spotIndex == 11) return '● 실시간 호가';
       return 'T-${(11 - spotIndex)}분';
     } else if (periodIndex == 1) {
@@ -401,17 +451,17 @@ class HodlProvider extends ChangeNotifier {
     final sampleOrders = isYadong
         ? [
             OrderBookItem(time: '방금', title: '노야동 2일차 게이', amount: '시크릿탭 0개 유지 중 (+2,000P)', isBuy: true),
-            OrderBookItem(time: '1분 전', title: '클린 브라우저', amount: '트위터 야동 검색 차단 성공', isBuy: true),
-            OrderBookItem(time: '2분 전', title: '전두엽 수호대', amount: '폰 내려놓고 책 30페이지 독서', isBuy: true),
-            OrderBookItem(time: '3분 전', title: '청정 갓생러', amount: '야동스피 +1,000P 풀매수', isBuy: true),
-            OrderBookItem(time: '5분 전', title: '퇴마사 홀더', amount: '음란마귀 침투 전량 방어 완료', isBuy: true),
+            OrderBookItem(time: '1분 전', title: '클린 브라우저', amount: '트위터 음란 검색 차단 성공 ㅋㅋㅋ', isBuy: true),
+            OrderBookItem(time: '2분 전', title: '전두엽 수호대', amount: '폰 집어던지고 현실 독서 30분', isBuy: true),
+            OrderBookItem(time: '3분 전', title: '청정 갓생러', amount: '야동스피 +1,000P 풀매수 가즈아', isBuy: true),
+            OrderBookItem(time: '5분 전', title: '퇴마사 갤러', amount: '음란마귀 침투 전량 방어 완료', isBuy: true),
           ]
         : [
-            OrderBookItem(time: '방금', title: '금딸 3일차 게이', amount: '피부에 광 돌기 시작함 (+3,000P)', isBuy: true),
-            OrderBookItem(time: '1분 전', title: '헬창 홀더', amount: '폰 집어던지고 푸쉬업 50개 완료', isBuy: true),
-            OrderBookItem(time: '2분 전', title: '뇌내 세력', amount: '인스타 릴스 덤핑 공격 방어 성공', isBuy: false),
-            OrderBookItem(time: '3분 전', title: '다이아몬드 손', amount: '+1,000P 딸스피 풀매수', isBuy: true),
-            OrderBookItem(time: '5분 전', title: '찬물샤워 장인', amount: '쿠퍼액 분비 전량 차단 완료', isBuy: true),
+            OrderBookItem(time: '방금', title: '금딸 3일차 게이', amount: '얼굴에 개기름 빠지고 광 돈다 (+3,000P)', isBuy: true),
+            OrderBookItem(time: '1분 전', title: '헬창 갤러', amount: '폰 집어던지고 푸쉬업 50개 조짐', isBuy: true),
+            OrderBookItem(time: '2분 전', title: '도파민 세력', amount: '인스타 릴스 융단폭격 쳐내기 성공', isBuy: false),
+            OrderBookItem(time: '3분 전', title: '다이아몬드 손', amount: '+1,000P 딸스피 영구 락업', isBuy: true),
+            OrderBookItem(time: '5분 전', title: '찬물샤워 장인', amount: '쿠퍼액 분비 전량 차단 완료 ㅋㅋ', isBuy: true),
           ];
     _liveOrders.addAll(sampleOrders);
   }
@@ -419,37 +469,41 @@ class HodlProvider extends ChangeNotifier {
   void _addSimulatedLiveTrade() {
     final isYadong = _activeTicker == TickerType.yadongspi;
     final buyTitles = isYadong
-        ? ['노야동 3일차', '시크릿탭 분쇄자', '청정 전두엽', '트위터 삭제러', '현실 집중가']
-        : ['금딸 5일차 게이', '다이아몬드 고추', '갓생 현자', '찬물샤워 전도사', '헬스장 상주인'];
+        ? ['노야동 3일차', '시크릿탭 분쇄자', '청정 전두엽', '트위터 삭제러', '안광 레이저 갤러', '야수의 심장 2X']
+        : ['금딸 5일차 게이', '다이아몬드 손', '갓생 현자', '찬물샤워 전도사', '헬스장 상주인', '흑우 탈출러'];
 
     final buyActions = isYadong
         ? [
             '폰 던지고 스쿼트 30개 매수 (+50P)',
-            '시크릿 모드 대신 플러터 공부 (+200P)',
-            '눈빛이 또렷해지고 집중력 떡상',
-            '+1,000P 야동스피 추가 락업',
-            '브라우저 북마크 전량 삭제 완료'
+            '시크릿 모드 대신 플러터 코딩 (+200P)',
+            '동태눈깔 탈출하고 집중력 떡상 중',
+            '+1,000P 야동스피 추가 락업 가즈아',
+            '브라우저 즐겨찾기 전량 삭제 완료 ㅋㅋ',
+            '인스타 돋보기 여캠 차단 박았다 이기',
           ]
         : [
-            '폰 던지고 스쿼트 30개 매수 (+50P)',
-            '눈빛에서 레이저 나오는 중 (상한가)',
-            '여사친이 먼저 말 걸었다 이기 (+800P)',
-            '+1,000P 딸스피 영구 락업',
-            '휴지통 전량 폐기 처분 완료'
+            '바지 속 손 몽둥이로 쳐냄 (+50P)',
+            '눈빛에서 테스토스테론 레이저 발사',
+            '여사친이 먼저 카톡 왔다 이기 (+800P)',
+            '+1,000P 딸스피 영구 락업 완료',
+            '방구석 휴지통 전량 폐기 처분 ㅋㅋ',
+            '딸 치면 한강 간다 손 묶어라 (+500P)',
           ];
 
     final defenseActions = isYadong
         ? [
             '새벽 2시 폰허브 북마크 유혹 덤핑 방어',
-            '인스타 돋보기 여캠 릴스 차단 필터 가동',
+            '인스타 돋보기 여캠 릴스 융단폭격 방어',
             '시크릿창 켜려던 손가락 응급 물리치료',
-            '음란마귀 속삭임 차단 방화벽 가동'
+            '음란마귀 속삭임 차단 방화벽 가동',
+            '검색창에 칠 뻔한 거 키보드 뽑음 ㅋㅋ',
           ]
         : [
             '새벽 2시 트위터 검색 유혹 덤핑 방어',
             '침대 눕방 중 바지 침투 손가락 격퇴',
             '음란물 사이트 접속 차단 방화벽 가동',
-            '현타 직전 서킷브레이커 멘탈 수성'
+            '현타 직전 서킷브레이커 멘탈 수성',
+            '쿠퍼액 누출 경보 발령 후 찬물 세수',
           ];
 
     final isPositive = _random.nextDouble() > 0.15;
@@ -757,13 +811,15 @@ class HodlProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Panic Sell / Liquidation (상장폐지 및 -2,000P 폭락)
+  // Panic Sell / Liquidation (상장폐지 및 -2,000P or -4,000P 폭락)
   Future<void> panicSellAndLiquidate({
     required String reason,
     required String note,
   }) async {
     final isYadong = _activeTicker == TickerType.yadongspi;
     final now = DateTime.now();
+    final int lossAmount = _isLeverage2x ? 4000 : 2000;
+    final formattedReason = _isLeverage2x ? '$reason [2X 레버리지 반대매매 깡통]' : reason;
 
     // 1. 이번 종목 달성 업적 목록 수집 (박제용)
     final achievedBadges = currentTickerAchievements
@@ -776,8 +832,8 @@ class HodlProvider extends ChangeNotifier {
       timestamp: now,
       durationHeld: elapsedDuration,
       returnRateAchieved: currentPoints,
-      simulatedLossAmount: 2000, // 패닉셀 시 -2,000P 감점 손실
-      reason: reason,
+      simulatedLossAmount: lossAmount,
+      reason: formattedReason,
       note: note,
       achievedBadges: achievedBadges,
       tickerType: _activeTicker.name,
@@ -787,9 +843,9 @@ class HodlProvider extends ChangeNotifier {
 
     final prefs = await SharedPreferences.getInstance();
 
-    // 2. 포인트 -2000P 적용 및 타이머 재설정 (독립적 처리)
+    // 2. 포인트 감점(-2,000P 또는 2X 레버리지 시 -4,000P) 적용 및 타이머 재설정
     if (isYadong) {
-      _yadongspiBasePoints = _yadongspiPoints - 2000.0;
+      _yadongspiBasePoints = _yadongspiPoints - lossAmount.toDouble();
       _yadongspiStartTime = now;
       _yadongspiElapsed = Duration.zero;
       _yadongspiPoints = _yadongspiBasePoints;
@@ -803,7 +859,7 @@ class HodlProvider extends ChangeNotifier {
       // 부활 업적 부여
       await unlockAchievement('YD_RESURRECTION', ticker: TickerType.yadongspi);
     } else {
-      _ttalspiBasePoints = _ttalspiPoints - 2000.0;
+      _ttalspiBasePoints = _ttalspiPoints - lossAmount.toDouble();
       _ttalspiStartTime = now;
       _ttalspiElapsed = Duration.zero;
       _ttalspiPoints = _ttalspiBasePoints;

@@ -45,72 +45,72 @@ extension TickerTypeExtension on TickerType {
   String get tagLine {
     switch (this) {
       case TickerType.ttalspi:
-        return '손 떼라';
+        return '손 떼라 게이야';
       case TickerType.yadongspi:
-        return '창 닫아라';
+        return '창 닫아라 게이야';
     }
   }
 
   String get subTitle {
     switch (this) {
       case TickerType.ttalspi:
-        return 'KRW-DOSP • 뇌 안개(브레인포그) 청산 중';
+        return 'KRW-DOSP • 뇌 녹아내림 방지 & 테스토스테론 떡상';
       case TickerType.yadongspi:
-        return 'KRW-YDSP • 시크릿탭/음란마귀 청산 중';
+        return 'KRW-YDSP • 시크릿탭 0개 & 전두엽 심폐소생';
     }
   }
 
   String get timerLabel {
     switch (this) {
       case TickerType.ttalspi:
-        return '실시간 금딸(무발사) 존버 타이머';
+        return '실시간 금딸 무발사 존버 타이머';
       case TickerType.yadongspi:
-        return '실시간 노야동(청정뇌) 존버 타이머';
+        return '실시간 노야동 청정뇌 존버 타이머';
     }
   }
 
   String get timerStatus {
     switch (this) {
       case TickerType.ttalspi:
-        return '손 묶고 버티는 중 🔒';
+        return '바지 속 손 묶고 버티는 중 🔒';
       case TickerType.yadongspi:
-        return '시크릿탭 0개 유지 중 🛡️';
+        return '시크릿탭 전량 차단 유지 🛡️';
     }
   }
 
   String get panicButtonText {
     switch (this) {
       case TickerType.ttalspi:
-        return '결국 충동에 굴복 (한 발 빼기 & -2000P 폭락)';
+        return '결국 뇌 녹아서 발사 (딸치고 깡통 차기 📉)';
       case TickerType.yadongspi:
-        return '결국 유혹에 굴복 (야동 시청 & -2000P 폭락)';
+        return '결국 시크릿 모드 켬 (야동 보고 깡통 차기 📉)';
     }
   }
 
   String get delistedTitle {
     switch (this) {
       case TickerType.ttalspi:
-        return '[딸스피] 상장 폐지 & 폭락';
+        return '🚨 [딸스피] 전량 매도 & 깡통 상폐';
       case TickerType.yadongspi:
-        return '[야동스피] 상장 폐지 & 폭락';
+        return '🚨 [야동스피] 시크릿 침투 & 깡통 상폐';
     }
   }
 
   String get delistedSubtitle {
     switch (this) {
       case TickerType.ttalspi:
-        return '도파민 몰수! 지수 -2,000P 폭락 & 현타 100%';
+        return '10초의 쾌락에 -2,000P 폭락! 현타 500배 & 천장 응시';
       case TickerType.yadongspi:
-        return '음란마귀 침투! 지수 -2,000P 폭락 & 자괴감 100%';
+        return '음란마귀에 전두엽 털림! -2,000P 폭락 & 자괴감 500배';
     }
   }
 
   String get restartButtonText {
     switch (this) {
       case TickerType.ttalspi:
-        return '눈물 닦고 딸스피 재도전';
+        return '눈물 닦고 딸스피 재매수 (한강 안 간다)';
       case TickerType.yadongspi:
-        return '시크릿탭 끄고 야동스피 재도전';
+        return '시크릿탭 끄고 야동스피 재매수 (갓생 복귀)';
     }
   }
 
@@ -118,21 +118,21 @@ extension TickerTypeExtension on TickerType {
     switch (this) {
       case TickerType.ttalspi:
         return [
-          '🔞 야동/트위터 5분만 보려다가',
-          '📱 침대에서 인스타 돋보기 보다가',
-          '🛌 무기력하게 눕방하다 무의식중에 쥐고 흔듦',
-          '🌙 새벽 2시 외로움과 잡념에 굴복',
-          '🚿 샤워하다 충동 못 참고 그만...',
-          '😵 “딱 한 번만 치고 내일부터 갓생” 합리화',
+          '🔞 트위터/야동 5분만 눈팅하려다 대참사',
+          '📱 침대 눕방 중 인스타 돋보기 여캠에 뇌 녹음',
+          '🛌 멍때리다 무의식중에 손이 바지 속으로 들어감',
+          '🌙 새벽 2시 외로움에 굴복하고 휴지 뽑음',
+          '🚿 샤워하다 충동 못 이기고 거품 매도',
+          '😵 "딱 오늘만 치고 내일부터 갓생" 개소리 시전',
         ];
       case TickerType.yadongspi:
         return [
-          '🕵️ 크롬 시크릿 모드 슬그머니 켬',
-          '🐦 트위터/X 검색창에 은밀한 단어 검색',
-          '🔞 폰허브/야동 사이트 북마크 못 참고 클릭',
-          '📱 인스타 돋보기에서 여캠 릴스 30분 시청',
-          '💭 뇌 속 음란마귀 망상에 결국 검색창 실행',
-          '😵 "미리보기 1분만 보고 끈다" 자기합리화',
+          '🕵️ 크롬 시크릿 모드 은밀하게 켜버림',
+          '🐦 트위터 검색창에 위험한 단어 입력',
+          '🔞 북마크 사이트 유혹 못 참고 광클',
+          '📱 알고리즘 여캠 릴스 30분 보다가 결국 서핑',
+          '💭 뇌내 음란마귀 망상에 못 이겨 검색 실행',
+          '😵 "1분만 미리보기하고 끈다" 자기합리화 실패',
         ];
     }
   }

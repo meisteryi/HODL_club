@@ -83,70 +83,79 @@ class _StockTickerHeaderState extends State<StockTickerHeader>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.neonGreen.withValues(alpha: 0.12),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: AppColors.neonGreen.withValues(alpha: 0.3),
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.neonGreen.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: AppColors.neonGreen.withValues(alpha: 0.3),
+                        ),
                       ),
+                      child: Text(activeTicker.icon, style: const TextStyle(fontSize: 18)),
                     ),
-                    child: Text(activeTicker.icon, style: const TextStyle(fontSize: 18)),
-                  ),
-                  const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            '${activeTicker.nameKo} (${activeTicker.code})',
-                            style: const TextStyle(
-                              color: AppColors.textPrimary,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.3,
-                            ),
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  '${activeTicker.nameKo} (${activeTicker.code})',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: AppColors.textPrimary,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -0.3,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.electricRed.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(
+                                    color: AppColors.electricRed.withValues(alpha: 0.4),
+                                  ),
+                                ),
+                                child: Text(
+                                  activeTicker.tagLine,
+                                  style: const TextStyle(
+                                    color: AppColors.electricRed,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.electricRed.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(
-                                color: AppColors.electricRed.withValues(alpha: 0.4),
-                              ),
-                            ),
-                            child: Text(
-                              activeTicker.tagLine,
-                              style: const TextStyle(
-                                color: AppColors.electricRed,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
+                          const SizedBox(height: 2),
+                          Text(
+                            activeTicker.subTitle,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 11,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        activeTicker.subTitle,
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               // Live status indicator
               AnimatedBuilder(
                 animation: _blinkController,

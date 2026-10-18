@@ -85,7 +85,7 @@ class SafariInstallPrompt extends StatelessWidget {
                         text: '[홈 화면에 추가]',
                         style: TextStyle(color: AppColors.neonGreen, fontWeight: FontWeight.bold),
                       ),
-                      TextSpan(text: '를 탭하면 딸딸이 충동 올 때마다 즉시 켜서 방어할 수 있습니다.'),
+                      TextSpan(text: '를 탭하면 딸 충동 올 때마다 0.5초만에 켜서 손 쳐낼 수 있다 게이야.'),
                     ],
                   ),
                 ),

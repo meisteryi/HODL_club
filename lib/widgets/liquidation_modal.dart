@@ -118,7 +118,7 @@ class _LiquidationModalState extends State<LiquidationModal> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    isYadong ? '결국 야동을 봐버렸노 게이야...' : '결국 발사해버렸노 게이야...',
+                    isYadong ? '결국 시크릿 모드 켜버렸노 게이야...' : '결국 뇌 녹아서 발사해버렸노 게이야...',
                     style: const TextStyle(
                       color: AppColors.electricRed,
                       fontSize: 16,
@@ -126,7 +126,9 @@ class _LiquidationModalState extends State<LiquidationModal> {
                     ),
                   ),
                   Text(
-                    '지금 리셋하면 ${activeTicker.nameKo} 지수 -2,000P 폭락 처리됩니다',
+                    provider.isLeverage2x
+                        ? '🚨 2X 레버리지 반대매매! ${activeTicker.nameKo} 지수 -4,000P 깡통 청산'
+                        : '지금 리셋하면 ${activeTicker.nameKo} 지수 -2,000P 폭락 처리됩니다',
                     style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
                   ),
                 ],
@@ -140,16 +142,23 @@ class _LiquidationModalState extends State<LiquidationModal> {
           decoration: BoxDecoration(
             color: AppColors.cardSurface,
             borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: provider.isLeverage2x ? AppColors.gold.withValues(alpha: 0.5) : AppColors.border,
+            ),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('${activeTicker.nameKo} 폭락 페널티',
-                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-              const Text(
-                '-2,000 P 폭락',
+              Text(
+                provider.isLeverage2x
+                    ? '${activeTicker.nameKo} 2X 곱버스 깡통 페널티'
+                    : '${activeTicker.nameKo} 폭락 페널티',
+                style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+              ),
+              Text(
+                provider.isLeverage2x ? '-4,000 P (반대매매)' : '-2,000 P 폭락',
                 style: TextStyle(
-                  color: AppColors.electricRed,
+                  color: provider.isLeverage2x ? AppColors.gold : AppColors.electricRed,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                   fontFamily: 'monospace',
@@ -161,7 +170,7 @@ class _LiquidationModalState extends State<LiquidationModal> {
         const SizedBox(height: 16),
         Text(
           isYadong
-              ? '야동 시청(상장폐지) 원인을 고백하라 (폭락 회고록 박제):'
+              ? '야동 시청(깡통 상폐) 원인을 고백하라 (폭락 회고록 박제):'
               : '패닉셀(발사) 원인을 고백하라 (폭락 회고록 박제):',
           style: const TextStyle(
             color: AppColors.textPrimary,
@@ -230,8 +239,8 @@ class _LiquidationModalState extends State<LiquidationModal> {
           style: const TextStyle(color: AppColors.textPrimary, fontSize: 12),
           decoration: InputDecoration(
             hintText: isYadong
-                ? '예: 시크릿 모드 켜자마자 뇌 녹았다... 다음엔 진짜 폰 던진다.'
-                : '예: 10초의 쾌락 뒤에 찾아온 건 휴지와 자괴감뿐이었다...',
+                ? '예: 시크릿 모드 켜자마자 뇌 녹았다... 다음엔 진짜 키보드 뽑는다.'
+                : '예: 10초의 쾌락 뒤에 찾아온 건 휴지와 자괴감뿐이었다... 흑우 탈출 언제 하노',
             hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 11),
             filled: true,
             fillColor: AppColors.cardSurface,
@@ -258,7 +267,7 @@ class _LiquidationModalState extends State<LiquidationModal> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('취소하고 손 묶기', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                child: const Text('취소하고 손 묶기 (한강 안 간다)', style: TextStyle(color: AppColors.textSecondary, fontSize: 11)),
               ),
             ),
             const SizedBox(width: 10),
@@ -270,7 +279,7 @@ class _LiquidationModalState extends State<LiquidationModal> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 onPressed: _proceedToDelist,
-                child: const Text('상장폐지 확정', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                child: const Text('상장폐지 확정 (깡통)', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
               ),
             ),
           ],
@@ -342,7 +351,7 @@ class _LiquidationModalState extends State<LiquidationModal> {
               const SizedBox(height: 6),
               _buildSummaryRow(
                 '지수 변동',
-                '-2,000 P 폭락 📉',
+                provider.isLeverage2x ? '-4,000 P (2X 깡통 청산) 📉' : '-2,000 P 폭락 📉',
                 color: AppColors.electricRed,
               ),
               const SizedBox(height: 6),
@@ -362,7 +371,7 @@ class _LiquidationModalState extends State<LiquidationModal> {
               const SizedBox(height: 8),
               if (unlockedBadges.isEmpty)
                 const Text(
-                  '달성 도전과제 없음 (10분도 못 버티고 컷)',
+                  '달성 도전과제 없음 (10분도 못 버티고 컷 당했노 ㅋㅋ)',
                   style: TextStyle(color: AppColors.textMuted, fontSize: 11, fontStyle: FontStyle.italic),
                 )
               else
@@ -401,8 +410,8 @@ class _LiquidationModalState extends State<LiquidationModal> {
         const SizedBox(height: 14),
         Text(
           isYadong
-              ? '“시크릿 탭 닫고 찬물 세수해라 게이야...\n자괴감 털고 일어나야 뇌세포 살아난다.”'
-              : '“손 씻고 거울 봐라 게이야...\n그래도 다시 일어나서 덤벨 들어야 사람새끼 된다.”',
+              ? '“시크릿 탭 닫고 찬물 세수해라 게이야...\n자괴감 털고 일어나야 뇌세포 살아난다 ㅋㅋ”'
+              : '“휴지 치우고 거울 봐라 게이야...\n그래도 다시 일어나서 푸쉬업 박아야 사람새끼 된다 ㅋㅋ”',
           textAlign: TextAlign.center,
           style: const TextStyle(
             color: AppColors.gold,

@@ -60,7 +60,7 @@ class HistoryScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '총 ${history.length}회의 발사(상장폐지) 흑역사 박제',
+                        '총 ${history.length}회의 발사 흑역사 박제 (이불킥 주의)',
                         style: const TextStyle(
                           color: AppColors.electricRed,
                           fontSize: 12,
@@ -88,7 +88,7 @@ class HistoryScreen extends StatelessWidget {
                   Text('💎', style: TextStyle(fontSize: 48)),
                   SizedBox(height: 12),
                   Text(
-                    '상장폐지(발사) 이력이 없습니다!',
+                    '상장폐지(발사) 이력이 없다 이기!',
                     style: TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 16,
@@ -97,7 +97,7 @@ class HistoryScreen extends StatelessWidget {
                   ),
                   SizedBox(height: 6),
                   Text(
-                    '단 한 번도 패닉셀하지 않은 전설의 다이아몬드 고추입니다.\n손 묶고 버틴 갓생러 인정한다 이기. 이 페이스를 유지하라!',
+                    '단 한 번도 패닉셀하지 않은 전설의 다이아몬드 고추다.\n손 묶고 버틴 갓생 갤러 인정한다 ㅋㅋ 이 페이스 쭉 유지해라!',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: AppColors.textSecondary,

@@ -72,5 +72,28 @@ void main() {
 
       provider.dispose();
     });
+
+    test('2X Leverage mode toggles and applies 4000P liquidation penalty', () async {
+      final provider = HodlProvider();
+      await Future.delayed(const Duration(milliseconds: 50));
+
+      expect(provider.isLeverage2x, isFalse);
+
+      await provider.toggleLeverage();
+      expect(provider.isLeverage2x, isTrue);
+
+      await provider.panicSellAndLiquidate(
+        reason: '야수의 심장 2X 청산 테스트',
+        note: '미수 깡통 찼노',
+      );
+
+      expect(provider.liquidationHistory.first.simulatedLossAmount, 4000);
+      expect(provider.liquidationHistory.first.reason, contains('[2X 레버리지 반대매매 깡통]'));
+
+      await provider.toggleLeverage();
+      expect(provider.isLeverage2x, isFalse);
+
+      provider.dispose();
+    });
   });
 }

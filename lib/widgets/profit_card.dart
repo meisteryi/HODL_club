@@ -24,10 +24,14 @@ class ProfitCard extends StatelessWidget {
     final progress = _calculateProgress(provider.elapsedDuration, rank, nextRank);
 
     final statusCommentary = currentPoints >= 0
-        ? (activeTicker == TickerType.ttalspi
-            ? '🔥 테스토스테론 폭등 랠리 중'
-            : '🛡️ 전두엽 도파민 정상화 랠리 중')
-        : '🚨 상폐 페널티(-2,000P) 복구 진행 중';
+        ? (provider.isLeverage2x
+            ? '⚡ 2X 레버리지 야수의 심장 탑승 중'
+            : (activeTicker == TickerType.ttalspi
+                ? '🔥 테스토스테론 떡상 랠리 중'
+                : '🛡️ 전두엽 도파민 정상화 랠리 중'))
+        : (provider.isLeverage2x
+            ? '🚨 2X 깡통(-4,000P) 복구 중 ㅠㅠ'
+            : '🚨 깡통 페널티(-2,000P) 복구 진행 중');
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -36,12 +40,15 @@ class ProfitCard extends StatelessWidget {
         color: AppColors.cardSurface,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: pointsColor.withValues(alpha: 0.3),
-          width: 1.2,
+          color: provider.isLeverage2x
+              ? AppColors.gold.withValues(alpha: 0.6)
+              : pointsColor.withValues(alpha: 0.3),
+          width: provider.isLeverage2x ? 1.6 : 1.2,
         ),
         boxShadow: [
           BoxShadow(
-            color: pointsColor.withValues(alpha: 0.08),
+            color: (provider.isLeverage2x ? AppColors.gold : pointsColor)
+                .withValues(alpha: 0.1),
             blurRadius: 18,
             offset: const Offset(0, 6),
           ),
@@ -82,9 +89,9 @@ class ProfitCard extends StatelessWidget {
               Text(
                 statusCommentary,
                 style: TextStyle(
-                  color: pointsColor,
+                  color: provider.isLeverage2x ? AppColors.gold : pointsColor,
                   fontSize: 11,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
@@ -118,13 +125,34 @@ class ProfitCard extends StatelessWidget {
                 color: pointsColor,
                 size: 26,
               ),
+              if (provider.isLeverage2x) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.gold.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: AppColors.gold, width: 1),
+                  ),
+                  child: const Text(
+                    '2X 곱버스',
+                    style: TextStyle(
+                      color: AppColors.gold,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 4),
           Text(
-            '실시간 ${activeTicker.nameKo} 지수 (시작 0P • 1일 +1,000P)',
-            style: const TextStyle(
-              color: AppColors.textSecondary,
+            provider.isLeverage2x
+                ? '실시간 ${activeTicker.nameKo} 2X 레버리지 (하루 +2,000P 떡상 / 패닉셀 시 -4,000P 깡통)'
+                : '실시간 ${activeTicker.nameKo} 지수 (시작 0P • 1일 +1,000P)',
+            style: TextStyle(
+              color: provider.isLeverage2x ? AppColors.gold : AppColors.textSecondary,
               fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
@@ -143,8 +171,113 @@ class ProfitCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 _buildSpecItem('시작 기준 지수', '0.0 P'),
-                _buildSpecItem('상승 속도', '+1,000 P / 1일'),
-                _buildSpecItem('상폐 페널티', '-2,000 P', isDanger: true),
+                _buildSpecItem(
+                  '상승 속도',
+                  provider.isLeverage2x ? '+2,000 P / 1일 (2X)' : '+1,000 P / 1일',
+                  isAccent: provider.isLeverage2x,
+                ),
+                _buildSpecItem(
+                  '상폐 페널티',
+                  provider.isLeverage2x ? '-4,000 P (반대매매)' : '-2,000 P',
+                  isDanger: true,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // ⚡ 상남자 2X 레버리지 모드 토글 카드
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: provider.isLeverage2x
+                  ? AppColors.gold.withValues(alpha: 0.12)
+                  : AppColors.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: provider.isLeverage2x
+                    ? AppColors.gold
+                    : AppColors.border,
+                width: provider.isLeverage2x ? 1.2 : 0.8,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: provider.isLeverage2x
+                        ? AppColors.gold.withValues(alpha: 0.25)
+                        : AppColors.cardSurface,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    provider.isLeverage2x ? '⚡' : '🛡️',
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text(
+                            '상남자 2X 레버리지 모드',
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: provider.isLeverage2x
+                                  ? AppColors.electricRed.withValues(alpha: 0.2)
+                                  : AppColors.cardSurface,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              provider.isLeverage2x ? '신용 풀미수' : '1X 정석',
+                              style: TextStyle(
+                                color: provider.isLeverage2x
+                                    ? AppColors.electricRed
+                                    : AppColors.textMuted,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        provider.isLeverage2x
+                            ? '야수의 심장 탑승! 하루 +2,000P 폭등 / 발사 시 -4,000P 깡통 청산 ㅋㅋ'
+                            : '안전제일 1X 존버 중 (하루 +1,000P / 발사 시 -2,000P)',
+                        style: TextStyle(
+                          color: provider.isLeverage2x
+                              ? AppColors.gold
+                              : AppColors.textSecondary,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Switch(
+                  value: provider.isLeverage2x,
+                  onChanged: (val) {
+                    provider.toggleLeverage();
+                  },
+                  activeThumbColor: AppColors.gold,
+                  activeTrackColor: AppColors.gold.withValues(alpha: 0.4),
+                  inactiveThumbColor: AppColors.textSecondary,
+                  inactiveTrackColor: AppColors.cardSurface,
+                ),
               ],
             ),
           ),
@@ -199,7 +332,7 @@ class ProfitCard extends StatelessWidget {
     );
   }
 
-  Widget _buildSpecItem(String label, String value, {bool isDanger = false}) {
+  Widget _buildSpecItem(String label, String value, {bool isDanger = false, bool isAccent = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -211,7 +344,9 @@ class ProfitCard extends StatelessWidget {
         Text(
           value,
           style: TextStyle(
-            color: isDanger ? AppColors.electricRed : AppColors.textPrimary,
+            color: isDanger
+                ? AppColors.electricRed
+                : (isAccent ? AppColors.gold : AppColors.textPrimary),
             fontSize: 11,
             fontWeight: FontWeight.w700,
             fontFamily: 'monospace',

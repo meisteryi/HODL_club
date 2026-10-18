@@ -198,7 +198,7 @@ class _CircuitBreakerModalState extends State<CircuitBreakerModal>
                       ),
                       SizedBox(height: 4),
                       Text(
-                        '손 떼라 게이야!! 지금 치면 오늘 하루도 휴지 낭비하고 천장 본다.\n5초 안에 매도 버튼(손)을 미친 듯이 연타하여 이성을 사수하라!',
+                        '손 떼라 게이야!! 지금 치면 또 휴지 치우고 벽 보면서 현타 온다 ㅋㅋ\n5초 안에 매도 버튼(손)을 미친 듯이 광클해서 손가락 쳐내라!',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: AppColors.textSecondary,
@@ -214,7 +214,7 @@ class _CircuitBreakerModalState extends State<CircuitBreakerModal>
                 if (!_isGameStarted) ...[
                   // Start Game Button
                   const Text(
-                    '제한시간 5초 안에 15회 연타로 손 쳐내기',
+                    '제한시간 5초 안에 15회 광클로 손 쳐내기',
                     style: TextStyle(color: AppColors.gold, fontSize: 12, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 14),
@@ -237,7 +237,7 @@ class _CircuitBreakerModalState extends State<CircuitBreakerModal>
                           Icon(Icons.touch_app, size: 20),
                           SizedBox(width: 8),
                           Text(
-                            '이성 사수 미니게임 시작하기',
+                            '이성 사수 연타 미니게임 시작',
                             style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                           ),
                         ],
@@ -258,7 +258,7 @@ class _CircuitBreakerModalState extends State<CircuitBreakerModal>
                         Text('🎉 텐트 강제 철거 및 이성 사수 성공!', style: TextStyle(color: AppColors.neonGreen, fontSize: 15, fontWeight: FontWeight.w900)),
                         SizedBox(height: 6),
                         Text(
-                          '손가락이 바지 밖으로 강제 퇴출되었습니다.\n쿠퍼액 분비가 중단되고 뇌가 다시 맑아졌습니다!',
+                          '손가락이 바지 밖으로 강제 퇴출되었습니다.\n쿠퍼액 누출이 중단되고 뇌세포가 살아났습니다!',
                           textAlign: TextAlign.center,
                           style: TextStyle(color: AppColors.textPrimary, fontSize: 12),
                         ),
@@ -276,7 +276,7 @@ class _CircuitBreakerModalState extends State<CircuitBreakerModal>
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('금딸 전선으로 복귀', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                      child: const Text('전선으로 복귀 (존버 가즈아)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                     ),
                   ),
                 ] else if (_isGameOver && !_isSuccess) ...[
@@ -293,7 +293,7 @@ class _CircuitBreakerModalState extends State<CircuitBreakerModal>
                         const Text('⚠️ 손 떼기 지연! 뇌 녹는 중', style: TextStyle(color: AppColors.electricRed, fontSize: 15, fontWeight: FontWeight.w900)),
                         const SizedBox(height: 6),
                         Text(
-                          '연타 속도가 부족했다 게이야 ($_tapCount/$_targetTaps).\n심호흡 크게 하고 푸쉬업 20개 하거나 다시 탭해서 막아라!',
+                          '광클 속도가 부족했다 게이야 ($_tapCount/$_targetTaps).\n심호흡 크게 하고 푸쉬업 20개 박고 다시 쳐내라!',
                           textAlign: TextAlign.center,
                           style: const TextStyle(color: AppColors.textPrimary, fontSize: 12),
                         ),

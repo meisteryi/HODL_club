@@ -32,8 +32,11 @@ class _HodlChartWidgetState extends State<HodlChartWidget> {
 
     final maxY = spots.map((s) => s.y).reduce(max);
     final minY = spots.map((s) => s.y).reduce(min);
-    final effectiveMaxY = maxY <= 0 ? 10.0 : maxY * 1.15;
-    final effectiveMinY = max(0.0, minY * 0.85);
+    final effectiveMaxY = maxY <= 0 ? (minY < 0 ? 0.0 : 10.0) : maxY * 1.15;
+    final effectiveMinY = minY < 0 ? minY * 1.15 : max(0.0, minY * 0.85);
+
+    final isPositive = provider.testosteronePoints >= 0;
+    final chartColor = isPositive ? AppColors.neonGreen : AppColors.electricRed;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -49,20 +52,51 @@ class _HodlChartWidgetState extends State<HodlChartWidget> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Expanded(
-                child: Row(
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.show_chart, color: AppColors.neonGreen, size: 18),
-                    SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        '테스토스테론 폭등 차트',
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
+                    Row(
+                      children: [
+                        Icon(Icons.show_chart, color: chartColor, size: 18),
+                        const SizedBox(width: 6),
+                        const Flexible(
+                          child: Text(
+                            '통합 테스토스테론 차트',
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.gold.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: AppColors.gold.withValues(alpha: 0.4)),
+                          ),
+                          child: Text(
+                            '평균 ${isPositive ? '+' : ''}${provider.testosteronePoints.toStringAsFixed(1)} P',
+                            style: const TextStyle(
+                              color: AppColors.gold,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              fontFamily: 'monospace',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '딸스피(${provider.ttalspiPoints.toStringAsFixed(0)}P) • 야동스피(${provider.yadongspiPoints.toStringAsFixed(0)}P) 평균 지수',
+                      style: const TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 10,
                       ),
                     ),
                   ],
@@ -102,7 +136,7 @@ class _HodlChartWidgetState extends State<HodlChartWidget> {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
 
           // Period commentary banner
           Container(
@@ -143,10 +177,15 @@ class _HodlChartWidgetState extends State<HodlChartWidget> {
                       return touchedSpots.map((touchedSpot) {
                         final idx = touchedSpot.x.toInt();
                         final event = provider.getEventLabel(_selectedCandleIndex, idx);
+                        final val = touchedSpot.y;
+                        final pointsText = val >= 0
+                            ? '+${val.toStringAsFixed(1)} P'
+                            : '${val.toStringAsFixed(1)} P';
+
                         return LineTooltipItem(
-                          '${touchedSpot.y.toStringAsFixed(1)}%\n',
-                          const TextStyle(
-                            color: AppColors.neonGreen,
+                          '$pointsText\n',
+                          TextStyle(
+                            color: val >= 0 ? AppColors.neonGreen : AppColors.electricRed,
                             fontWeight: FontWeight.bold,
                             fontSize: 12,
                             fontFamily: 'monospace',
@@ -169,7 +208,7 @@ class _HodlChartWidgetState extends State<HodlChartWidget> {
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
-                  horizontalInterval: effectiveMaxY > effectiveMinY
+                  horizontalInterval: (effectiveMaxY - effectiveMinY) > 0
                       ? (effectiveMaxY - effectiveMinY) / 3
                       : 1,
                   getDrawingHorizontalLine: (value) {
@@ -209,13 +248,14 @@ class _HodlChartWidgetState extends State<HodlChartWidget> {
                   leftTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
-                      reservedSize: 45,
-                      interval: effectiveMaxY > effectiveMinY
+                      reservedSize: 52,
+                      interval: (effectiveMaxY - effectiveMinY) > 0
                           ? (effectiveMaxY - effectiveMinY) / 3
                           : 1,
                       getTitlesWidget: (value, meta) {
+                        final formatted = value >= 0 ? '+${value.toInt()}P' : '${value.toInt()}P';
                         return Text(
-                          '+${value.toInt()}%',
+                          formatted,
                           style: const TextStyle(
                             color: AppColors.textMuted,
                             fontSize: 9,
@@ -232,13 +272,12 @@ class _HodlChartWidgetState extends State<HodlChartWidget> {
                     spots: spots,
                     isCurved: _selectedCandleIndex != 2, // 일봉은 계단식 감성
                     curveSmoothness: 0.35,
-                    color: AppColors.neonGreen,
+                    color: chartColor,
                     barWidth: 2.5,
                     isStrokeCapRound: true,
                     dotData: FlDotData(
                       show: true,
                       checkToShowDot: (spot, barData) {
-                        // 1분봉에서는 딥 저점과 현재 고점에 점 표시
                         if (_selectedCandleIndex == 0) {
                           return spot.x == 3 || spot.x == spots.last.x;
                         }
@@ -248,7 +287,7 @@ class _HodlChartWidgetState extends State<HodlChartWidget> {
                         final isDip = _selectedCandleIndex == 0 && spot.x == 3;
                         return FlDotCirclePainter(
                           radius: isDip ? 4 : 5,
-                          color: isDip ? AppColors.electricRed : AppColors.neonGreen,
+                          color: isDip ? AppColors.electricRed : chartColor,
                           strokeWidth: 2,
                           strokeColor: AppColors.background,
                         );
@@ -260,8 +299,8 @@ class _HodlChartWidgetState extends State<HodlChartWidget> {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          AppColors.neonGreen.withValues(alpha: 0.35),
-                          AppColors.neonGreen.withValues(alpha: 0.0),
+                          chartColor.withValues(alpha: 0.35),
+                          chartColor.withValues(alpha: 0.0),
                         ],
                       ),
                     ),
@@ -286,20 +325,20 @@ class _HodlChartWidgetState extends State<HodlChartWidget> {
     );
   }
 
-  String _formatXLabel(int candleIndex, int totalSpots, int currentIndex) {
-    final diff = totalSpots - 1 - currentIndex;
-    if (diff == 0) return 'NOW';
-
-    switch (candleIndex) {
-      case 0:
-        return 'T-${diff}m';
-      case 1:
-        return 'T-${diff * 10}m';
-      case 2:
-        return 'D-$diff';
-      case 3:
-      default:
-        return 'W-$diff';
+  String _formatXLabel(int periodIndex, int totalSpots, int idx) {
+    if (idx >= totalSpots) return '';
+    if (periodIndex == 0) {
+      if (idx == totalSpots - 1) return '현재';
+      return '${totalSpots - 1 - idx}분전';
+    } else if (periodIndex == 1) {
+      if (idx == totalSpots - 1) return '현재';
+      return '${(totalSpots - 1 - idx) * 10}분전';
+    } else if (periodIndex == 2) {
+      if (idx == totalSpots - 1) return '오늘';
+      return '${totalSpots - 1 - idx}일전';
+    } else {
+      if (idx == totalSpots - 1) return '이번주';
+      return '${totalSpots - 1 - idx}주전';
     }
   }
 }

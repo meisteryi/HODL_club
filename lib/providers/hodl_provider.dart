@@ -109,6 +109,9 @@ class HodlProvider extends ChangeNotifier {
   Duration get ttalspiElapsed => _ttalspiElapsed;
   Duration get yadongspiElapsed => _yadongspiElapsed;
 
+  // 테스토스테론 종합 지수: 딸스피와 야동스피의 평균
+  double get testosteronePoints => (_ttalspiPoints + _yadongspiPoints) / 2.0;
+
   List<Achievement> getAchievementsFor(TickerType ticker) {
     final unlockedSet =
         ticker == TickerType.yadongspi ? _yadongspiUnlockedIds : _ttalspiUnlockedIds;
@@ -290,7 +293,8 @@ class HodlProvider extends ChangeNotifier {
   }
 
   List<FlSpot> getSpotsForPeriod(int periodIndex) {
-    final effectivePoints = max(10.0, currentPoints);
+    // 테스토스테론 지수: 딸스피와 야동스피의 평균으로 통일
+    final tPoint = testosteronePoints;
     final List<FlSpot> spots = [];
 
     switch (periodIndex) {
@@ -299,13 +303,15 @@ class HodlProvider extends ChangeNotifier {
           0.85, 0.90, 0.95, 0.72, 0.68, 0.79, 0.88, 0.97, 0.92, 1.05, 0.98, 1.00
         ];
         for (int i = 0; i < factors.length; i++) {
-          double y = effectivePoints * factors[i];
+          double y;
           if (i == factors.length - 1) {
-            y = currentPoints;
+            y = tPoint;
           } else {
-            y += (i % 2 == 0 ? _jitter : -_jitter);
+            y = tPoint >= 0
+                ? max(0.0, tPoint * factors[i] + (i % 2 == 0 ? _jitter : -_jitter))
+                : tPoint * (2.0 - factors[i]);
           }
-          spots.add(FlSpot(i.toDouble(), max(0.0, y)));
+          spots.add(FlSpot(i.toDouble(), y));
         }
         break;
 
@@ -314,9 +320,10 @@ class HodlProvider extends ChangeNotifier {
           0.45, 0.62, 0.42, 0.68, 0.44, 0.75, 0.86, 0.80, 0.94, 1.00
         ];
         for (int i = 0; i < factors.length; i++) {
-          double y = effectivePoints * factors[i];
-          if (i == factors.length - 1) y = currentPoints;
-          spots.add(FlSpot(i.toDouble(), max(0.0, y)));
+          double y = i == factors.length - 1
+              ? tPoint
+              : (tPoint >= 0 ? max(0.0, tPoint * factors[i]) : tPoint * (2.0 - factors[i]));
+          spots.add(FlSpot(i.toDouble(), y));
         }
         break;
 
@@ -325,9 +332,10 @@ class HodlProvider extends ChangeNotifier {
           0.15, 0.16, 0.38, 0.35, 0.64, 0.61, 0.88, 1.00
         ];
         for (int i = 0; i < factors.length; i++) {
-          double y = effectivePoints * factors[i];
-          if (i == factors.length - 1) y = currentPoints;
-          spots.add(FlSpot(i.toDouble(), max(0.0, y)));
+          double y = i == factors.length - 1
+              ? tPoint
+              : (tPoint >= 0 ? max(0.0, tPoint * factors[i]) : tPoint * (2.0 - factors[i]));
+          spots.add(FlSpot(i.toDouble(), y));
         }
         break;
 
@@ -335,9 +343,10 @@ class HodlProvider extends ChangeNotifier {
       default:
         final factors = [0.05, 0.14, 0.28, 0.48, 0.74, 1.00];
         for (int i = 0; i < factors.length; i++) {
-          double y = effectivePoints * factors[i];
-          if (i == factors.length - 1) y = currentPoints;
-          spots.add(FlSpot(i.toDouble(), max(0.0, y)));
+          double y = i == factors.length - 1
+              ? tPoint
+              : (tPoint >= 0 ? max(0.0, tPoint * factors[i]) : tPoint * (2.0 - factors[i]));
+          spots.add(FlSpot(i.toDouble(), y));
         }
         break;
     }
@@ -346,25 +355,16 @@ class HodlProvider extends ChangeNotifier {
   }
 
   String getPeriodCommentary(int periodIndex) {
-    final isYadong = _activeTicker == TickerType.yadongspi;
     switch (periodIndex) {
       case 0:
-        return isYadong
-            ? '🚨 [1분봉] 트위터/시크릿탭 덤핑 유혹(-200P) 발생! 방화벽 켜고 반등 중 📈'
-            : '🚨 [1분봉] 세력의 인스타 덤핑 공격 발생! 지지선에서 V자 반등 중 📈';
+        return '🚨 [1분봉] 실시간 유혹 덤핑 방어 중! 통합 테스토스테론 V자 반등 📈';
       case 1:
-        return isYadong
-            ? '📊 [10분봉] 음란마귀 매도 물량 전량 소화, 청정 전두엽 지지선 견고'
-            : '📊 [10분봉] 쌍바닥(W패턴) 지지선 구축 완료, 악성 매도 물량 전량 소화';
+        return '📊 [10분봉] 쌍바닥(W패턴) 지지선 구축 완료, 매도 물량 전량 소화';
       case 2:
-        return isYadong
-            ? '🚀 [일봉] 하루 +1,000P 안착! 시크릿탭 영구 봉인 장대양봉 출현'
-            : '🚀 [일봉] 횡보 매집 끝! 하루 +1,000P 돌파 장대양봉 출현';
+        return '🚀 [일봉] 딸스피+야동스피 동반 매집! 장대양봉 폭등 랠리';
       case 3:
       default:
-        return isYadong
-            ? '💎 [주봉] 7일 연속 노야동! 뇌 가소성 완벽 정상화 대세 랠리'
-            : '💎 [주봉] 월가 세력도 두 손 든 다이아몬드 고추 대세 상승 랠리';
+        return '💎 [주봉] 7일차 테스토스테론 145.7% 피크 연구 모티브 대세 랠리';
     }
   }
 

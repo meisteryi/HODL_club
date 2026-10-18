@@ -222,10 +222,8 @@ class _StockTickerHeaderState extends State<StockTickerHeader>
                   startDateStr,
                 ),
                 _buildInfoTag(
-                  activeTicker == TickerType.ttalspi ? '테스토스테론' : '전두엽 정화',
-                  activeTicker == TickerType.ttalspi
-                      ? '+840% 충전 ⚡'
-                      : '+920% 회복 🧠',
+                  '통합 테스토스테론',
+                  '${provider.testosteronePoints >= 0 ? '+' : ''}${provider.testosteronePoints.toStringAsFixed(1)} P ⚡',
                 ),
                 _buildInfoTag(
                   activeTicker == TickerType.ttalspi ? '멘탈 상태' : '브라우저 상태',

@@ -4,9 +4,17 @@ import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
 import '../models/liquidation_record.dart';
 import '../providers/hodl_provider.dart';
+import '../widgets/relapse_calendar_widget.dart';
 
-class HistoryScreen extends StatelessWidget {
+class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
+
+  @override
+  State<HistoryScreen> createState() => _HistoryScreenState();
+}
+
+class _HistoryScreenState extends State<HistoryScreen> {
+  bool _isCalendarView = true;
 
   @override
   Widget build(BuildContext context) {
@@ -73,9 +81,46 @@ class HistoryScreen extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
 
-          if (history.isEmpty)
+          // View Switcher: [ 📅 발사 캘린더 | 📜 전체 회고록 ]
+          Row(
+            children: [
+              Expanded(
+                child: _buildViewTab(
+                  icon: Icons.calendar_month_rounded,
+                  title: '발사 캘린더',
+                  isSelected: _isCalendarView,
+                  onTap: () {
+                    setState(() {
+                      _isCalendarView = true;
+                    });
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildViewTab(
+                  icon: Icons.format_list_bulleted_rounded,
+                  title: '전체 회고록',
+                  isSelected: !_isCalendarView,
+                  onTap: () {
+                    setState(() {
+                      _isCalendarView = false;
+                    });
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          if (_isCalendarView) ...[
+            RelapseCalendarWidget(
+              records: history,
+              onRecordTap: (record) => _showDetailModal(context, record),
+            ),
+          ] else if (history.isEmpty)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
               decoration: BoxDecoration(
@@ -672,6 +717,44 @@ class HistoryScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildViewTab({
+    required IconData icon,
+    required String title,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.darkRed.withValues(alpha: 0.35) : AppColors.surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected ? AppColors.electricRed : AppColors.border,
+            width: isSelected ? 1.4 : 0.8,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 16, color: isSelected ? AppColors.electricRed : AppColors.textMuted),
+            const SizedBox(width: 6),
+            Text(
+              title,
+              style: TextStyle(
+                color: isSelected ? AppColors.electricRed : AppColors.textSecondary,
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   String _formatDuration(Duration d) {
     if (d.inDays > 0) {
       return '${d.inDays}일 ${d.inHours % 24}시간 존버 후 발사';
@@ -682,3 +765,4 @@ class HistoryScreen extends StatelessWidget {
     }
   }
 }
+

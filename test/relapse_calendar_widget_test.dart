@@ -62,5 +62,10 @@ void main() {
     // Day detail panel should show records
     expect(find.text('유튜브 쇼츠 보다가 뇌 정지'), findsOneWidget);
     expect(find.text('호기심에 트위터 접속'), findsOneWidget);
+
+    // Verify distinct badge and duration text for ttalspi vs yadongspi
+    expect(find.text('총 2회 리셋 (발사 1 · 시청 1)'), findsOneWidget);
+    expect(find.text('3일 2시간 존버 후 발사'), findsOneWidget);
+    expect(find.text('4시간 존버 후 시청'), findsOneWidget);
   });
 }

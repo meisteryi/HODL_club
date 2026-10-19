@@ -256,8 +256,8 @@ class ProfitCard extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         provider.isLeverage2x
-                            ? '야수의 심장 탑승! 하루 +2,000P 폭등 / 발사 시 -4,000P 깡통 청산 ㅋㅋ'
-                            : '안전제일 1X 존버 중 (하루 +1,000P / 발사 시 -2,000P)',
+                            ? '야수의 심장 탑승! 하루 +2,000P 폭등 / ${activeTicker == TickerType.ttalspi ? "발사" : "시청"} 시 -4,000P 깡통 청산 ㅋㅋ'
+                            : '안전제일 1X 존버 중 (하루 +1,000P / ${activeTicker == TickerType.ttalspi ? "발사" : "시청"} 시 -2,000P)',
                         style: TextStyle(
                           color: provider.isLeverage2x
                               ? AppColors.gold

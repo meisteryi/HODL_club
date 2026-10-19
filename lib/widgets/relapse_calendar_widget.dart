@@ -60,13 +60,27 @@ class _RelapseCalendarWidgetState extends State<RelapseCalendarWidget> {
 
   String _formatDuration(Duration d) {
     if (d.inDays > 0) {
-      return '${d.inDays}일 ${d.inHours % 24}시간';
+      final hours = d.inHours % 24;
+      return hours > 0 ? '${d.inDays}일 $hours시간' : '${d.inDays}일';
     } else if (d.inHours > 0) {
-      return '${d.inHours}시간 ${d.inMinutes % 60}분';
+      final mins = d.inMinutes % 60;
+      return mins > 0 ? '${d.inHours}시간 $mins분' : '${d.inHours}시간';
     } else if (d.inMinutes > 0) {
       return '${d.inMinutes}분';
     }
     return '${d.inSeconds}초';
+  }
+
+  String _buildDaySummaryBadgeText(List<LiquidationRecord> dayRecords) {
+    final ttalCount = dayRecords.where((r) => r.tickerType != 'yadongspi').length;
+    final yadongCount = dayRecords.where((r) => r.tickerType == 'yadongspi').length;
+    if (ttalCount > 0 && yadongCount > 0) {
+      return '총 ${dayRecords.length}회 리셋 (발사 $ttalCount · 시청 $yadongCount)';
+    } else if (yadongCount > 0) {
+      return '총 $yadongCount회 시청 🔞';
+    } else {
+      return '총 $ttalCount회 발사 🍆';
+    }
   }
 
   @override
@@ -168,7 +182,7 @@ class _RelapseCalendarWidgetState extends State<RelapseCalendarWidget> {
                   children: [
                     Row(
                       children: [
-                        const Text('이달의 발사:', style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                        const Text('이달의 청산:', style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
                         const SizedBox(width: 6),
                         Text(
                           '🍆 $ttalCount회',
@@ -203,7 +217,7 @@ class _RelapseCalendarWidgetState extends State<RelapseCalendarWidget> {
                   SizedBox(width: 10),
                   Text('🔞 야동스피', style: TextStyle(color: AppColors.textSecondary, fontSize: 10)),
                   SizedBox(width: 10),
-                  Text('💥 중복 발사 (겹침)', style: TextStyle(color: AppColors.gold, fontSize: 10, fontWeight: FontWeight.bold)),
+                  Text('💥 당일 다회 리셋 (겹침)', style: TextStyle(color: AppColors.gold, fontSize: 10, fontWeight: FontWeight.bold)),
                 ],
               ),
             ],
@@ -521,7 +535,7 @@ class _RelapseCalendarWidgetState extends State<RelapseCalendarWidget> {
                 const Icon(Icons.touch_app_outlined, color: AppColors.gold, size: 16),
                 const SizedBox(width: 6),
                 Text(
-                  '${DateFormat('yyyy년 M월').format(_currentMonth)} 발사 기록 (${monthRecords.length}건)',
+                  '${DateFormat('yyyy년 M월').format(_currentMonth)} 청산/리셋 기록 (${monthRecords.length}건)',
                   style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 13,
@@ -532,7 +546,7 @@ class _RelapseCalendarWidgetState extends State<RelapseCalendarWidget> {
             ),
             const SizedBox(height: 6),
             const Text(
-              '달력에서 날짜를 탭하면 그 날 한발 뺐거나 야동 본 상세 내역을 모아서 볼 수 있다 게이야!',
+              '달력에서 날짜를 탭하면 그 날 한발 뺐거나(발사) 야동 본(시청) 상세 내역을 모아서 볼 수 있다 게이야!',
               style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
             ),
             if (monthRecords.isNotEmpty) ...[
@@ -595,7 +609,7 @@ class _RelapseCalendarWidgetState extends State<RelapseCalendarWidget> {
                               border: Border.all(color: AppColors.electricRed),
                             ),
                             child: Text(
-                              '총 ${dayRecords.length}회 발사',
+                              _buildDaySummaryBadgeText(dayRecords),
                               style: const TextStyle(
                                 color: AppColors.electricRed,
                                 fontSize: 10,
@@ -651,7 +665,7 @@ class _RelapseCalendarWidgetState extends State<RelapseCalendarWidget> {
                   Text('💎', style: TextStyle(fontSize: 36)),
                   SizedBox(height: 8),
                   Text(
-                    '이 날은 단 한 번도 발사하지 않았습니다!',
+                    '이 날은 발사도 시청도 하지 않은 청정 구역입니다!',
                     style: TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.bold),
                   ),
                   SizedBox(height: 4),
@@ -727,7 +741,7 @@ class _RelapseCalendarWidgetState extends State<RelapseCalendarWidget> {
                       ],
                     ),
                     Text(
-                      '$durationStr 존버 후 컷',
+                      isYadong ? '$durationStr 존버 후 시청' : '$durationStr 존버 후 발사',
                       style: const TextStyle(
                         color: AppColors.gold,
                         fontSize: 11,

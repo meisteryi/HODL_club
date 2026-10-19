@@ -68,7 +68,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '총 ${history.length}회의 발사 흑역사 박제 (이불킥 주의)',
+                        '총 ${history.length}회의 폭락 흑역사 박제 (발사·시청 이불킥 주의)',
                         style: const TextStyle(
                           color: AppColors.electricRed,
                           fontSize: 12,
@@ -83,13 +83,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
           ),
           const SizedBox(height: 14),
 
-          // View Switcher: [ 📅 발사 캘린더 | 📜 전체 회고록 ]
+          // View Switcher: [ 📅 리셋 캘린더 | 📜 전체 회고록 ]
           Row(
             children: [
               Expanded(
                 child: _buildViewTab(
                   icon: Icons.calendar_month_rounded,
-                  title: '발사 캘린더',
+                  title: '리셋 캘린더',
                   isSelected: _isCalendarView,
                   onTap: () {
                     setState(() {
@@ -133,7 +133,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   Text('💎', style: TextStyle(fontSize: 48)),
                   SizedBox(height: 12),
                   Text(
-                    '상장폐지(발사) 이력이 없다 이기!',
+                    '상장폐지(발사/시청) 이력이 없다 이기!',
                     style: TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 16,
@@ -162,7 +162,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               itemBuilder: (context, index) {
                 final record = history[index];
                 final dateStr = DateFormat('yyyy.MM.dd HH:mm').format(record.timestamp);
-                final durationStr = _formatDuration(record.durationHeld);
+                final durationStr = _formatDuration(record.durationHeld, isYadong: record.tickerType == 'yadongspi');
 
                 return Container(
                   decoration: BoxDecoration(
@@ -378,8 +378,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   void _showDetailModal(BuildContext context, LiquidationRecord record) {
     final dateStr = DateFormat('yyyy년 MM월 dd일 HH:mm:ss').format(record.timestamp);
-    final durationStr = _formatDuration(record.durationHeld);
     final isYadong = record.tickerType == 'yadongspi';
+    final durationStr = _formatDuration(record.durationHeld, isYadong: isYadong);
     final List<String> badges = List<String>.from(record.achievedBadges);
 
     showModalBottomSheet(
@@ -755,13 +755,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-  String _formatDuration(Duration d) {
+  String _formatDuration(Duration d, {bool isYadong = false}) {
+    final action = isYadong ? '시청' : '발사';
     if (d.inDays > 0) {
-      return '${d.inDays}일 ${d.inHours % 24}시간 존버 후 발사';
+      final hours = d.inHours % 24;
+      return hours > 0
+          ? '${d.inDays}일 $hours시간 존버 후 $action'
+          : '${d.inDays}일 존버 후 $action';
     } else if (d.inHours > 0) {
-      return '${d.inHours}시간 ${d.inMinutes % 60}분 존버 후 발사';
+      final mins = d.inMinutes % 60;
+      return mins > 0
+          ? '${d.inHours}시간 $mins분 존버 후 $action'
+          : '${d.inHours}시간 존버 후 $action';
     } else {
-      return '${d.inMinutes}분 ${d.inSeconds % 60}초 존버 후 발사';
+      return '${d.inMinutes}분 ${d.inSeconds % 60}초 존버 후 $action';
     }
   }
 }

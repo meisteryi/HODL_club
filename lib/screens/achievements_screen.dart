@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -13,28 +14,194 @@ class AchievementsScreen extends StatefulWidget {
 }
 
 class _AchievementsScreenState extends State<AchievementsScreen> {
-  TickerType? _filterTicker;
+  late PageController _pageController;
+  int _currentPage = 0;
+  bool _isAnimating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final initialTicker =
+        Provider.of<HodlProvider>(context, listen: false).activeTicker;
+    _currentPage = initialTicker == TickerType.ttalspi ? 0 : 1;
+    _pageController = PageController(initialPage: _currentPage);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _onPageChanged(int index, HodlProvider provider) {
+    setState(() {
+      _currentPage = index;
+    });
+    final targetTicker = index == 0 ? TickerType.ttalspi : TickerType.yadongspi;
+    if (provider.activeTicker != targetTicker) {
+      provider.switchTicker(targetTicker);
+    }
+  }
+
+  void _animateToTicker(TickerType ticker) {
+    final targetPage = ticker == TickerType.ttalspi ? 0 : 1;
+    if (_currentPage != targetPage && _pageController.hasClients) {
+      _isAnimating = true;
+      _pageController
+          .animateToPage(
+            targetPage,
+            duration: const Duration(milliseconds: 320),
+            curve: Curves.easeOutCubic,
+          )
+          .then((_) {
+        _isAnimating = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<HodlProvider>();
-    final activeTicker = _filterTicker ?? provider.activeTicker;
+    final activeTicker = provider.activeTicker;
+    final expectedPage = activeTicker == TickerType.ttalspi ? 0 : 1;
 
+    // External change sync (e.g. if activeTicker changes from dashboard or notification)
+    if (!_isAnimating &&
+        _currentPage != expectedPage &&
+        _pageController.hasClients) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _pageController.hasClients && !_isAnimating) {
+          _isAnimating = true;
+          _pageController
+              .animateToPage(
+                expectedPage,
+                duration: const Duration(milliseconds: 320),
+                curve: Curves.easeOutCubic,
+              )
+              .then((_) {
+            _isAnimating = false;
+          });
+        }
+      });
+    }
+
+    final ttalspiUnlocked = provider.getUnlockedCountFor(TickerType.ttalspi);
+    final ttalspiTotal = provider.getTotalCountFor(TickerType.ttalspi);
+    final yadongspiUnlocked =
+        provider.getUnlockedCountFor(TickerType.yadongspi);
+    final yadongspiTotal = provider.getTotalCountFor(TickerType.yadongspi);
+
+    final selectedTicker =
+        _currentPage == 0 ? TickerType.ttalspi : TickerType.yadongspi;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // 1. Ticker Filter Segment
+        Container(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          decoration: const BoxDecoration(
+            color: AppColors.surface,
+            border: Border(
+              bottom: BorderSide(color: AppColors.border, width: 1),
+            ),
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildFilterTab(
+                      title: '🍆 딸스피',
+                      countStr: '$ttalspiUnlocked / $ttalspiTotal',
+                      isSelected: selectedTicker == TickerType.ttalspi,
+                      onTap: () {
+                        provider.switchTicker(TickerType.ttalspi);
+                        _animateToTicker(TickerType.ttalspi);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildFilterTab(
+                      title: '🔞 야동스피',
+                      countStr: '$yadongspiUnlocked / $yadongspiTotal',
+                      isSelected: selectedTicker == TickerType.yadongspi,
+                      onTap: () {
+                        provider.switchTicker(TickerType.yadongspi);
+                        _animateToTicker(TickerType.yadongspi);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+
+              // Slide Gesture Hint
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.swipe_outlined,
+                    size: 13,
+                    color: AppColors.textMuted.withValues(alpha: 0.7),
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    '화면 좌우 슬라이드로 종목 이동 (스와이프)',
+                    style: TextStyle(
+                      color: AppColors.textMuted.withValues(alpha: 0.8),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        // 2. Swipable Achievements PageView
+        Expanded(
+          child: ScrollConfiguration(
+            behavior: const MaterialScrollBehavior().copyWith(
+              dragDevices: {
+                PointerDeviceKind.touch,
+                PointerDeviceKind.mouse,
+                PointerDeviceKind.trackpad,
+                PointerDeviceKind.stylus,
+              },
+            ),
+            child: PageView(
+              controller: _pageController,
+              physics: const PageScrollPhysics(parent: BouncingScrollPhysics()),
+              onPageChanged: (index) => _onPageChanged(index, provider),
+              children: [
+                _buildAchievementsList(context, provider, TickerType.ttalspi),
+                _buildAchievementsList(context, provider, TickerType.yadongspi),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAchievementsList(
+    BuildContext context,
+    HodlProvider provider,
+    TickerType ticker,
+  ) {
     final achievements = provider
-        .getAchievementsFor(activeTicker)
-        .where((a) => a.category == 'all' || a.category == activeTicker.name)
+        .getAchievementsFor(ticker)
+        .where((a) => a.category == 'all' || a.category == ticker.name)
         .toList();
 
     final unlockedCount = achievements.where((a) => a.isUnlocked).length;
     final totalCount = achievements.length;
     final progress = totalCount > 0 ? unlockedCount / totalCount : 0.0;
-
-    final ttalspiUnlocked = provider.getUnlockedCountFor(TickerType.ttalspi);
-    final ttalspiTotal = provider.getTotalCountFor(TickerType.ttalspi);
-    final yadongspiUnlocked = provider.getUnlockedCountFor(TickerType.yadongspi);
-    final yadongspiTotal = provider.getTotalCountFor(TickerType.yadongspi);
-
-    final isYadong = activeTicker == TickerType.yadongspi;
+    final isYadong = ticker == TickerType.yadongspi;
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -42,39 +209,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 1. Ticker Filter Segment
-          Row(
-            children: [
-              Expanded(
-                child: _buildFilterTab(
-                  title: '🍆 딸스피',
-                  countStr: '$ttalspiUnlocked / $ttalspiTotal',
-                  isSelected: activeTicker == TickerType.ttalspi,
-                  onTap: () {
-                    setState(() {
-                      _filterTicker = TickerType.ttalspi;
-                    });
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildFilterTab(
-                  title: '🔞 야동스피',
-                  countStr: '$yadongspiUnlocked / $yadongspiTotal',
-                  isSelected: activeTicker == TickerType.yadongspi,
-                  onTap: () {
-                    setState(() {
-                      _filterTicker = TickerType.yadongspi;
-                    });
-                  },
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-
-          // 2. Header card
+          // Header card
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
@@ -97,10 +232,10 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                   children: [
                     Row(
                       children: [
-                        Text(activeTicker.icon, style: const TextStyle(fontSize: 22)),
+                        Text(ticker.icon, style: const TextStyle(fontSize: 22)),
                         const SizedBox(width: 8),
                         Text(
-                          '${activeTicker.nameKo} 명예의 전당',
+                          '${ticker.nameKo} 명예의 전당',
                           style: const TextStyle(
                             color: AppColors.textPrimary,
                             fontSize: 16,
@@ -110,7 +245,10 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                       ],
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.gold.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(10),
@@ -133,7 +271,8 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                     value: progress,
                     minHeight: 8,
                     backgroundColor: AppColors.cardSurface,
-                    valueColor: const AlwaysStoppedAnimation<Color>(AppColors.gold),
+                    valueColor:
+                        const AlwaysStoppedAnimation<Color>(AppColors.gold),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -141,19 +280,29 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                   isYadong
                       ? '수많은 개미들이 시크릿 모드 검은 창에 뇌를 녹일 때, 전두엽 방화벽을 사수한 자만이 청정뇌를 얻는다.'
                       : '수많은 딸잡이들이 10초의 쾌락에 패닉셀할 때, 끝까지 손 묶고 버텨낸 자만이 갓생을 산다.',
-                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 11,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   decoration: BoxDecoration(
                     color: AppColors.darkRed.withValues(alpha: 0.35),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.electricRed.withValues(alpha: 0.5)),
+                    border: Border.all(
+                      color: AppColors.electricRed.withValues(alpha: 0.5),
+                    ),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.warning_amber_rounded, color: AppColors.electricRed, size: 16),
+                      const Icon(
+                        Icons.warning_amber_rounded,
+                        color: AppColors.electricRed,
+                        size: 16,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -176,7 +325,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
           ),
           const SizedBox(height: 18),
 
-          // 3. Achievement cards
+          // Achievement cards
           ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -189,43 +338,37 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
               return Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: isUnlocked ? AppColors.cardSurface : AppColors.surface.withValues(alpha: 0.6),
+                  color: isUnlocked
+                      ? AppColors.cardSurface
+                      : AppColors.surface.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
                     color: isUnlocked
-                        ? AppColors.neonGreen.withValues(alpha: 0.35)
-                        : AppColors.border.withValues(alpha: 0.5),
+                        ? AppColors.gold.withValues(alpha: 0.4)
+                        : AppColors.border,
                     width: isUnlocked ? 1.2 : 0.8,
                   ),
-                  boxShadow: isUnlocked
-                      ? [
-                          BoxShadow(
-                            color: AppColors.neonGreen.withValues(alpha: 0.05),
-                            blurRadius: 10,
-                          ),
-                        ]
-                      : null,
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      width: 48,
-                      height: 48,
+                      width: 44,
+                      height: 44,
                       decoration: BoxDecoration(
                         color: isUnlocked
-                            ? AppColors.neonGreen.withValues(alpha: 0.15)
-                            : AppColors.cardSurface,
-                        borderRadius: BorderRadius.circular(12),
+                            ? AppColors.gold.withValues(alpha: 0.15)
+                            : AppColors.surface,
+                        borderRadius: BorderRadius.circular(10),
                         border: Border.all(
                           color: isUnlocked
-                              ? AppColors.neonGreen.withValues(alpha: 0.4)
+                              ? AppColors.gold.withValues(alpha: 0.4)
                               : AppColors.border,
                         ),
                       ),
                       child: Center(
                         child: Text(
-                          isUnlocked ? ach.icon : '🔒',
+                          ach.icon,
                           style: TextStyle(
                             fontSize: 22,
                             color: isUnlocked ? null : AppColors.textMuted,
@@ -233,59 +376,73 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 14),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Expanded(
                                 child: Text(
                                   ach.title,
                                   style: TextStyle(
-                                    color: isUnlocked ? AppColors.textPrimary : AppColors.textMuted,
+                                    color: isUnlocked
+                                        ? AppColors.textPrimary
+                                        : AppColors.textMuted,
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: isUnlocked
-                                      ? AppColors.darkGreen
-                                      : AppColors.surface,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  ach.rewardTitle,
+                              if (isUnlocked)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.gold.withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Text(
+                                    '달성 완료',
+                                    style: TextStyle(
+                                      color: AppColors.gold,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                )
+                              else
+                                const Text(
+                                  '🔒 미달성',
                                   style: TextStyle(
-                                    color: isUnlocked ? AppColors.neonGreen : AppColors.textMuted,
+                                    color: AppColors.textMuted,
                                     fontSize: 10,
-                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                              ),
                             ],
                           ),
                           const SizedBox(height: 2),
                           Text(
                             ach.subtitle,
                             style: TextStyle(
-                              color: isUnlocked ? AppColors.gold : AppColors.textMuted,
+                              color: isUnlocked
+                                  ? AppColors.neonGreen
+                                  : AppColors.textMuted,
                               fontSize: 11,
-                              fontWeight: FontWeight.w500,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             ach.description,
                             style: TextStyle(
-                              color: isUnlocked ? AppColors.textSecondary : AppColors.textMuted.withValues(alpha: 0.6),
+                              color: isUnlocked
+                                  ? AppColors.textSecondary
+                                  : AppColors.textMuted.withValues(alpha: 0.7),
                               fontSize: 11,
-                              height: 1.3,
                             ),
                           ),
                           if (isUnlocked && ach.unlockedAt != null) ...[
@@ -293,8 +450,8 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                             Text(
                               '달성일: ${DateFormat('yyyy.MM.dd HH:mm').format(ach.unlockedAt!)}',
                               style: const TextStyle(
-                                color: AppColors.neonGreen,
-                                fontSize: 9,
+                                color: AppColors.textMuted,
+                                fontSize: 10,
                                 fontFamily: 'monospace',
                               ),
                             ),
@@ -307,7 +464,6 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
               );
             },
           ),
-          const SizedBox(height: 24),
         ],
       ),
     );
@@ -322,34 +478,49 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.cardSurface : AppColors.surface,
+          color: isSelected
+              ? AppColors.cardSurface
+              : AppColors.background.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isSelected ? AppColors.gold : AppColors.border,
+            color: isSelected ? AppColors.neonGreen : AppColors.border,
             width: isSelected ? 1.5 : 1,
           ),
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
               title,
               style: TextStyle(
-                color: isSelected ? AppColors.textPrimary : AppColors.textSecondary,
-                fontSize: 13,
+                color: isSelected
+                    ? AppColors.textPrimary
+                    : AppColors.textSecondary,
+                fontSize: 12,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
             ),
-            Text(
-              countStr,
-              style: TextStyle(
-                color: isSelected ? AppColors.gold : AppColors.textMuted,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'monospace',
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? AppColors.neonGreen.withValues(alpha: 0.2)
+                    : AppColors.cardSurface,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                countStr,
+                style: TextStyle(
+                  color: isSelected ? AppColors.neonGreen : AppColors.textMuted,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'monospace',
+                ),
               ),
             ),
           ],

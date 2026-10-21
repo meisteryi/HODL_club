@@ -6,22 +6,29 @@ import '../models/ticker_type.dart';
 import '../providers/hodl_provider.dart';
 
 class ProfitCard extends StatelessWidget {
-  const ProfitCard({super.key});
+  final TickerType? ticker;
+
+  const ProfitCard({super.key, this.ticker});
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<HodlProvider>();
-    final activeTicker = provider.activeTicker;
-    final currentPoints = provider.currentPoints;
+    final activeTicker = ticker ?? provider.activeTicker;
+    final currentPoints = ticker != null
+        ? (ticker == TickerType.ttalspi ? provider.ttalspiPoints : provider.yadongspiPoints)
+        : provider.currentPoints;
+    final duration = ticker != null
+        ? (ticker == TickerType.ttalspi ? provider.ttalspiElapsed : provider.yadongspiElapsed)
+        : provider.elapsedDuration;
 
     final pointsStr = currentPoints >= 0
         ? '+${currentPoints.toStringAsFixed(2)} P'
         : '${currentPoints.toStringAsFixed(2)} P';
     final pointsColor = currentPoints >= 0 ? AppColors.neonGreen : AppColors.electricRed;
 
-    final rank = provider.currentRank;
+    final rank = HodlRank.getRank(duration, ticker: activeTicker);
     final nextRank = _getNextRank(rank, activeTicker);
-    final progress = _calculateProgress(provider.elapsedDuration, rank, nextRank);
+    final progress = _calculateProgress(duration, rank, nextRank);
 
     final statusCommentary = currentPoints >= 0
         ? (provider.isLeverage2x

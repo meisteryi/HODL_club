@@ -5,12 +5,17 @@ import '../models/ticker_type.dart';
 import '../providers/hodl_provider.dart';
 
 class HodlTimerWidget extends StatelessWidget {
-  const HodlTimerWidget({super.key});
+  final TickerType? ticker;
+
+  const HodlTimerWidget({super.key, this.ticker});
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<HodlProvider>();
-    final duration = provider.elapsedDuration;
+    final activeTicker = ticker ?? provider.activeTicker;
+    final duration = ticker != null
+        ? (ticker == TickerType.ttalspi ? provider.ttalspiElapsed : provider.yadongspiElapsed)
+        : provider.elapsedDuration;
 
     final days = duration.inDays;
     final hours = duration.inHours % 24;
@@ -37,7 +42,7 @@ class HodlTimerWidget extends StatelessWidget {
                     const SizedBox(width: 6),
                     Flexible(
                       child: Text(
-                        provider.activeTicker.timerLabel,
+                        activeTicker.timerLabel,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: AppColors.textPrimary,
@@ -57,7 +62,7 @@ class HodlTimerWidget extends StatelessWidget {
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  provider.activeTicker.timerStatus,
+                  activeTicker.timerStatus,
                   style: const TextStyle(
                     color: AppColors.neonGreen,
                     fontSize: 10,

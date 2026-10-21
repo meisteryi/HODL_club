@@ -60,6 +60,7 @@ class HodlProvider extends ChangeNotifier {
   bool _safariPromptDismissed = false;
 
   Timer? _tickerTimer;
+  bool _isDisposed = false;
   final Random _random = Random();
 
   // Simulated live trade stream (호가 / 체결창)
@@ -111,6 +112,8 @@ class HodlProvider extends ChangeNotifier {
   double get yadongspiPoints => _yadongspiPoints;
   Duration get ttalspiElapsed => _ttalspiElapsed;
   Duration get yadongspiElapsed => _yadongspiElapsed;
+  DateTime? get ttalspiStartTime => _ttalspiStartTime;
+  DateTime? get yadongspiStartTime => _yadongspiStartTime;
 
   // 테스토스테론 종합 지수: 딸스피와 야동스피의 평균
   double get testosteronePoints => (_ttalspiPoints + _yadongspiPoints) / 2.0;
@@ -232,6 +235,7 @@ class HodlProvider extends ChangeNotifier {
     notifyListeners();
 
     // Start 1-second ticker timer for live stock experience
+    if (_isDisposed) return;
     _tickerTimer?.cancel();
     _tickerTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       _tick();
@@ -894,6 +898,7 @@ class HodlProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _isDisposed = true;
     _tickerTimer?.cancel();
     super.dispose();
   }

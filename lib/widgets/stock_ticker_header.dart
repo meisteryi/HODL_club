@@ -5,43 +5,23 @@ import '../constants/app_colors.dart';
 import '../models/ticker_type.dart';
 import '../providers/hodl_provider.dart';
 
-class StockTickerHeader extends StatefulWidget {
-  const StockTickerHeader({super.key});
+class StockTickerHeader extends StatelessWidget {
+  final ValueChanged<TickerType>? onTickerSelected;
+  final TickerType? selectedTicker;
 
-  @override
-  State<StockTickerHeader> createState() => _StockTickerHeaderState();
-}
-
-class _StockTickerHeaderState extends State<StockTickerHeader>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _blinkController;
-
-  @override
-  void initState() {
-    super.initState();
-    _blinkController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _blinkController.dispose();
-    super.dispose();
-  }
+  const StockTickerHeader({
+    super.key,
+    this.onTickerSelected,
+    this.selectedTicker,
+  });
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<HodlProvider>();
-    final activeTicker = provider.activeTicker;
-
-    final startDateStr = provider.startTime != null
-        ? DateFormat('yyyy.MM.dd HH:mm').format(provider.startTime!)
-        : '-';
+    final activeTicker = selectedTicker ?? provider.activeTicker;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
       decoration: const BoxDecoration(
         color: AppColors.surface,
         border: Border(
@@ -60,7 +40,10 @@ class _StockTickerHeaderState extends State<StockTickerHeader>
                   points: provider.ttalspiPoints,
                   elapsed: provider.ttalspiElapsed,
                   isSelected: activeTicker == TickerType.ttalspi,
-                  onTap: () => provider.switchTicker(TickerType.ttalspi),
+                  onTap: () {
+                    provider.switchTicker(TickerType.ttalspi);
+                    onTickerSelected?.call(TickerType.ttalspi);
+                  },
                 ),
               ),
               const SizedBox(width: 8),
@@ -71,177 +54,36 @@ class _StockTickerHeaderState extends State<StockTickerHeader>
                   points: provider.yadongspiPoints,
                   elapsed: provider.yadongspiElapsed,
                   isSelected: activeTicker == TickerType.yadongspi,
-                  onTap: () => provider.switchTicker(TickerType.yadongspi),
+                  onTap: () {
+                    provider.switchTicker(TickerType.yadongspi);
+                    onTickerSelected?.call(TickerType.yadongspi);
+                  },
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
 
-          // 2. Active Ticker Detail Banner
+          // Slide Gesture Hint
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.neonGreen.withValues(alpha: 0.12),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: AppColors.neonGreen.withValues(alpha: 0.3),
-                        ),
-                      ),
-                      child: Text(activeTicker.icon, style: const TextStyle(fontSize: 18)),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  '${activeTicker.nameKo} (${activeTicker.code})',
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: AppColors.textPrimary,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: -0.3,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColors.electricRed.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(
-                                    color: AppColors.electricRed.withValues(alpha: 0.4),
-                                  ),
-                                ),
-                                child: Text(
-                                  activeTicker.tagLine,
-                                  style: const TextStyle(
-                                    color: AppColors.electricRed,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            activeTicker.subTitle,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+              Icon(
+                Icons.swipe_outlined,
+                size: 13,
+                color: AppColors.textMuted.withValues(alpha: 0.7),
               ),
-              const SizedBox(width: 8),
-              // Live status indicator
-              AnimatedBuilder(
-                animation: _blinkController,
-                builder: (context, child) {
-                  return Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.darkGreen,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: AppColors.neonGreen.withValues(
-                          alpha: 0.3 + (_blinkController.value * 0.5),
-                        ),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 7,
-                          height: 7,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: AppColors.neonGreen.withValues(
-                              alpha: 0.4 + (_blinkController.value * 0.6),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.neonGreen.withValues(
-                                  alpha: _blinkController.value * 0.8,
-                                ),
-                                blurRadius: 6,
-                                spreadRadius: 1,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          activeTicker == TickerType.ttalspi ? '존버 중' : '클린 중',
-                          style: const TextStyle(
-                            color: AppColors.neonGreen,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
+              const SizedBox(width: 5),
+              Text(
+                '화면 좌우 슬라이드로 종목 이동 (스와이프)',
+                style: TextStyle(
+                  color: AppColors.textMuted.withValues(alpha: 0.8),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.2,
+                ),
               ),
             ],
-          ),
-          const SizedBox(height: 10),
-
-          // 3. Quick Info strip
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: AppColors.cardSurface,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildInfoTag(
-                  activeTicker == TickerType.ttalspi ? '마지막 발사' : '마지막 시청',
-                  startDateStr,
-                ),
-                _buildInfoTag(
-                  '통합 테스토스테론',
-                  '${provider.testosteronePoints >= 0 ? '+' : ''}${provider.testosteronePoints.toStringAsFixed(1)} P ⚡',
-                ),
-                _buildInfoTag(
-                  activeTicker == TickerType.ttalspi ? '멘탈 상태' : '브라우저 상태',
-                  activeTicker == TickerType.ttalspi
-                      ? '뇌 녹음 차단 🛡️'
-                      : '시크릿탭 영봉인 🔒',
-                ),
-              ],
-            ),
           ),
         ],
       ),
@@ -345,6 +187,230 @@ class _StockTickerHeaderState extends State<StockTickerHeader>
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class StockTickerSummaryCard extends StatefulWidget {
+  final TickerType ticker;
+
+  const StockTickerSummaryCard({
+    super.key,
+    required this.ticker,
+  });
+
+  @override
+  State<StockTickerSummaryCard> createState() => _StockTickerSummaryCardState();
+}
+
+class _StockTickerSummaryCardState extends State<StockTickerSummaryCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _blinkController;
+
+  @override
+  void initState() {
+    super.initState();
+    _blinkController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _blinkController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<HodlProvider>();
+    final ticker = widget.ticker;
+
+    final startDate = ticker == TickerType.ttalspi
+        ? provider.ttalspiStartTime
+        : provider.yadongspiStartTime;
+
+    final startDateStr = startDate != null
+        ? DateFormat('yyyy.MM.dd HH:mm').format(startDate)
+        : '-';
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.neonGreen.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: AppColors.neonGreen.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Text(ticker.icon, style: const TextStyle(fontSize: 18)),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  '${ticker.nameKo} (${ticker.code})',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: AppColors.textPrimary,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -0.3,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.electricRed.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(
+                                    color: AppColors.electricRed.withValues(alpha: 0.4),
+                                  ),
+                                ),
+                                child: Text(
+                                  ticker.tagLine,
+                                  style: const TextStyle(
+                                    color: AppColors.electricRed,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            ticker.subTitle,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Live status indicator
+              AnimatedBuilder(
+                animation: _blinkController,
+                builder: (context, child) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.darkGreen,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: AppColors.neonGreen.withValues(
+                          alpha: 0.3 + (_blinkController.value * 0.5),
+                        ),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 7,
+                          height: 7,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppColors.neonGreen.withValues(
+                              alpha: 0.4 + (_blinkController.value * 0.6),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.neonGreen.withValues(
+                                  alpha: _blinkController.value * 0.8,
+                                ),
+                                blurRadius: 6,
+                                spreadRadius: 1,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          ticker == TickerType.ttalspi ? '존버 중' : '클린 중',
+                          style: const TextStyle(
+                            color: AppColors.neonGreen,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Quick Info strip
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.cardSurface,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildInfoTag(
+                  ticker == TickerType.ttalspi ? '마지막 발사' : '마지막 시청',
+                  startDateStr,
+                ),
+                _buildInfoTag(
+                  '통합 테스토스테론',
+                  '${provider.testosteronePoints >= 0 ? '+' : ''}${provider.testosteronePoints.toStringAsFixed(1)} P ⚡',
+                ),
+                _buildInfoTag(
+                  ticker == TickerType.ttalspi ? '멘탈 상태' : '브라우저 상태',
+                  ticker == TickerType.ttalspi
+                      ? '뇌 녹음 차단 🛡️'
+                      : '시크릿탭 영봉인 🔒',
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

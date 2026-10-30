@@ -29,6 +29,7 @@ class ProfitCard extends StatelessWidget {
     final rank = HodlRank.getRank(duration, ticker: activeTicker);
     final nextRank = _getNextRank(rank, activeTicker);
     final progress = _calculateProgress(duration, rank, nextRank);
+    final lossAmount = provider.currentLossAmount;
 
     final statusCommentary = currentPoints >= 0
         ? (provider.isLeverage2x
@@ -37,8 +38,8 @@ class ProfitCard extends StatelessWidget {
                 ? '🔥 테스토스테론 떡상 랠리 중'
                 : '🛡️ 전두엽 도파민 정상화 랠리 중'))
         : (provider.isLeverage2x
-            ? '🚨 2X 깡통(-4,000P) 복구 중 ㅠㅠ'
-            : '🚨 깡통 페널티(-2,000P) 복구 진행 중');
+            ? '🚨 2X 깡통(-${lossAmount}P) 복구 중 ㅠㅠ'
+            : '🚨 깡통 페널티(-${lossAmount}P) 복구 진행 중');
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -156,8 +157,8 @@ class ProfitCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             provider.isLeverage2x
-                ? '실시간 ${activeTicker.nameKo} 2X 레버리지 (하루 +2,000P 떡상 / 패닉셀 시 -4,000P 깡통)'
-                : '실시간 ${activeTicker.nameKo} 지수 (시작 0P • 1일 +1,000P)',
+                ? '실시간 ${activeTicker.nameKo} 2X 레버리지 (하루 +2,000P 떡상 / 패닉셀 시 -${provider.currentLossAmount}P 깡통)'
+                : '실시간 ${activeTicker.nameKo} 지수 (시작 0P • 1일 +1,000P • 패닉셀 시 -${provider.currentLossAmount}P)',
             style: TextStyle(
               color: provider.isLeverage2x ? AppColors.gold : AppColors.textSecondary,
               fontSize: 12,
@@ -185,8 +186,66 @@ class ProfitCard extends StatelessWidget {
                 ),
                 _buildSpecItem(
                   '상폐 페널티',
-                  provider.isLeverage2x ? '-4,000 P (반대매매)' : '-2,000 P',
+                  provider.isLeverage2x
+                      ? '-${provider.currentLossAmount} P (반대매매)'
+                      : '-${provider.currentLossAmount} P',
                   isDanger: true,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // 💰 5일 연속 존버 정기 배당금 안내 배너
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.neonGreen.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: AppColors.neonGreen.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Text('💰', style: TextStyle(fontSize: 16)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            '5일 연속 존버 주주환원 배당금',
+                            style: TextStyle(
+                              color: AppColors.neonGreen,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const Text(
+                            '+1,500 P 지급',
+                            style: TextStyle(
+                              color: AppColors.neonGreen,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              fontFamily: 'monospace',
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '누적 ${provider.activeDividendPayouts}회 수령 완료 • 다음 배당까지 약 ${provider.nextDividendDaysRemaining}일 남음',
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -263,8 +322,8 @@ class ProfitCard extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         provider.isLeverage2x
-                            ? '야수의 심장 탑승! 하루 +2,000P 폭등 / ${activeTicker == TickerType.ttalspi ? "발사" : "시청"} 시 -4,000P 깡통 청산 ㅋㅋ'
-                            : '안전제일 1X 존버 중 (하루 +1,000P / ${activeTicker == TickerType.ttalspi ? "발사" : "시청"} 시 -2,000P)',
+                            ? '야수의 심장 탑승! 하루 +2,000P 폭등 / ${activeTicker == TickerType.ttalspi ? "발사" : "시청"} 시 -${provider.currentLossAmount}P 깡통 청산 ㅋㅋ'
+                            : '안전제일 1X 존버 중 (하루 +1,000P / ${activeTicker == TickerType.ttalspi ? "발사" : "시청"} 시 -${provider.currentLossAmount}P)',
                         style: TextStyle(
                           color: provider.isLeverage2x
                               ? AppColors.gold

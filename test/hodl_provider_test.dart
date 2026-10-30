@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hodl_club/models/hodl_rank.dart';
+import 'package:hodl_club/models/ticker_type.dart';
 import 'package:hodl_club/providers/hodl_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -30,13 +31,13 @@ void main() {
       expect(provider.isInitialized, isTrue);
       expect(provider.initialDeposit, 0.0);
       expect(provider.currentValuation, greaterThanOrEqualTo(0.0));
-      expect(provider.achievements.length, 195);
+      expect(provider.achievements.length, 196);
       expect(provider.liveOrders.isNotEmpty, isTrue);
 
       provider.dispose();
     });
 
-    test('Panic sell & Liquidation resets timer and records history', () async {
+    test('Panic sell & Liquidation resets timer and applies reduced ttalspi penalty', () async {
       final provider = HodlProvider();
       await Future.delayed(const Duration(milliseconds: 50));
 
@@ -46,6 +47,7 @@ void main() {
       );
 
       expect(provider.liquidationHistory.length, 1);
+      expect(provider.liquidationHistory.first.simulatedLossAmount, 1000); // 딸스피는 1,000P
       expect(provider.liquidationHistory.first.reason, '📱 숏츠/릴스 무한스크롤');
       expect(provider.liquidationHistory.first.note, '의지력 방전 반성문');
       expect(provider.liquidationHistory.first.achievedBadges, isNotNull);
@@ -73,7 +75,7 @@ void main() {
       provider.dispose();
     });
 
-    test('2X Leverage mode toggles and applies 4000P liquidation penalty', () async {
+    test('2X Leverage mode toggles and applies double liquidation penalty', () async {
       final provider = HodlProvider();
       await Future.delayed(const Duration(milliseconds: 50));
 
@@ -82,16 +84,46 @@ void main() {
       await provider.toggleLeverage();
       expect(provider.isLeverage2x, isTrue);
 
+      // 딸스피 2X 레버리지: 2,000P
       await provider.panicSellAndLiquidate(
         reason: '야수의 심장 2X 청산 테스트',
         note: '미수 깡통 찼노',
       );
-
-      expect(provider.liquidationHistory.first.simulatedLossAmount, 4000);
+      expect(provider.liquidationHistory.first.simulatedLossAmount, 2000);
       expect(provider.liquidationHistory.first.reason, contains('[2X 레버리지 반대매매 깡통]'));
+
+      // 야동스피 2X 레버리지: 4,000P
+      provider.switchTicker(TickerType.yadongspi);
+      await provider.panicSellAndLiquidate(
+        reason: '시크릿 2X 청산 테스트',
+        note: '야동 미수 깡통',
+      );
+      expect(provider.liquidationHistory.first.simulatedLossAmount, 4000);
 
       await provider.toggleLeverage();
       expect(provider.isLeverage2x, isFalse);
+
+      provider.dispose();
+    });
+
+    test('5-day streak dividend payout test', () async {
+      // 5일 전 시작 시뮬레이션
+      final fiveDaysAgo = DateTime.now().subtract(const Duration(days: 5, hours: 1));
+      SharedPreferences.setMockInitialValues({
+        'hodl_start_time': fiveDaysAgo.toIso8601String(),
+        'hodl_ttalspi_base_points': 0.0,
+        'hodl_ttalspi_dividend_payouts': 0,
+      });
+
+      final provider = HodlProvider();
+      await Future.delayed(const Duration(milliseconds: 60));
+
+      // 5일 이상이므로 1회 배당금(+1,500P)이 지급되어야 함
+      expect(provider.ttalspiDividendPayouts, 1);
+      expect(provider.currentPoints, greaterThan(1500.0));
+
+      final dividendAch = provider.achievements.firstWhere((a) => a.id == 'DIVIDEND_5DAYS');
+      expect(dividendAch.isUnlocked, isTrue);
 
       provider.dispose();
     });

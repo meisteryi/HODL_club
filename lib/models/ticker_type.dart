@@ -99,7 +99,7 @@ extension TickerTypeExtension on TickerType {
   String get delistedSubtitle {
     switch (this) {
       case TickerType.ttalspi:
-        return '10초의 쾌락에 -2,000P 폭락! 현타 500배 & 천장 응시';
+        return '10초의 쾌락에 -1,000P 폭락! 현타 500배 & 천장 응시';
       case TickerType.yadongspi:
         return '음란마귀에 전두엽 털림! -2,000P 폭락 & 자괴감 500배';
     }

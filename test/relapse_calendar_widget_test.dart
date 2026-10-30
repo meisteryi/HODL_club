@@ -55,8 +55,8 @@ void main() {
     // Tap on today cell to view details
     final todayFinder = find.text('${now.day}');
     expect(todayFinder, findsWidgets);
-    await tester.ensureVisible(todayFinder.first);
-    await tester.tap(todayFinder.first, warnIfMissed: false);
+    await tester.ensureVisible(todayFinder.last);
+    await tester.tap(todayFinder.last, warnIfMissed: false);
     await tester.pumpAndSettle();
 
     // Day detail panel should show records

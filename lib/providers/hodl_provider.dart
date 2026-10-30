@@ -35,6 +35,8 @@ class HodlProvider extends ChangeNotifier {
   static const String _keyYadongspiAchievements = 'hodl_yadongspi_unlocked_achievements';
   static const String _keySafariDismissed = 'hodl_safari_dismissed';
   static const String _keyIsLeverage2x = 'hodl_is_leverage_2x';
+  static const String _keyTtalspiDividendPayouts = 'hodl_ttalspi_dividend_payouts';
+  static const String _keyYadongspiDividendPayouts = 'hodl_yadongspi_dividend_payouts';
 
   TickerType _activeTicker = TickerType.ttalspi;
   bool _isInitialized = false;
@@ -46,6 +48,7 @@ class HodlProvider extends ChangeNotifier {
   Duration _ttalspiElapsed = Duration.zero;
   double _ttalspiPoints = 0.0;
   Set<String> _ttalspiUnlockedIds = {};
+  int _ttalspiDividendPayouts = 0;
 
   // 야동스피 (YDSP) state
   DateTime? _yadongspiStartTime;
@@ -53,6 +56,7 @@ class HodlProvider extends ChangeNotifier {
   Duration _yadongspiElapsed = Duration.zero;
   double _yadongspiPoints = 0.0;
   Set<String> _yadongspiUnlockedIds = {};
+  int _yadongspiDividendPayouts = 0;
 
   double _jitter = 0.0;
 
@@ -97,9 +101,36 @@ class HodlProvider extends ChangeNotifier {
   Duration get elapsedDuration =>
       _activeTicker == TickerType.ttalspi ? _ttalspiElapsed : _yadongspiElapsed;
 
-  // Current index points (시작 0, 하루에 +1000P, 딸/야동 시 -2000P)
+  // Current index points (시작 0, 하루에 +1000P, 딸 시 -1000P / 야동 시 -2000P)
   double get currentPoints =>
       _activeTicker == TickerType.ttalspi ? _ttalspiPoints : _yadongspiPoints;
+
+  // 상폐 페널티 (딸스피: 1X -1,000P / 2X -2,000P, 야동스피: 1X -2,000P / 2X -4,000P)
+  int get currentLossAmount => getLossAmountFor(_activeTicker);
+
+  int getLossAmountFor(TickerType ticker) {
+    final isYadong = ticker == TickerType.yadongspi;
+    final baseLoss = isYadong ? 2000 : 1000;
+    return _isLeverage2x ? baseLoss * 2 : baseLoss;
+  }
+
+  // 5일 연속 존버 정기 배당금 (회당 +1,500P) 상태
+  int get ttalspiDividendPayouts => _ttalspiDividendPayouts;
+  int get yadongspiDividendPayouts => _yadongspiDividendPayouts;
+  int get activeDividendPayouts =>
+      _activeTicker == TickerType.ttalspi ? _ttalspiDividendPayouts : _yadongspiDividendPayouts;
+
+  Duration get nextDividendRemaining {
+    final elapsed = elapsedDuration;
+    const cycleSeconds = 5 * 86400;
+    final currentCycleSec = elapsed.inSeconds % cycleSeconds;
+    return Duration(seconds: cycleSeconds - currentCycleSec);
+  }
+
+  int get nextDividendDaysRemaining {
+    final remaining = nextDividendRemaining;
+    return remaining.inDays + 1;
+  }
 
   // Legacy compatibility getters for widgets expecting currency/rate
   int get initialDeposit => 0; // 시작가 0
@@ -209,6 +240,8 @@ class HodlProvider extends ChangeNotifier {
 
     _safariPromptDismissed = prefs.getBool(_keySafariDismissed) ?? false;
     _isLeverage2x = prefs.getBool(_keyIsLeverage2x) ?? false;
+    _ttalspiDividendPayouts = prefs.getInt(_keyTtalspiDividendPayouts) ?? 0;
+    _yadongspiDividendPayouts = prefs.getInt(_keyYadongspiDividendPayouts) ?? 0;
 
     // 4. Liquidation History
     final historyListJson = prefs.getStringList(_keyHistory) ?? [];
@@ -230,6 +263,7 @@ class HodlProvider extends ChangeNotifier {
     _updateCalculations();
     _generateInitialOrders();
     _buildChartSpots();
+    await _checkDividends();
 
     _isInitialized = true;
     notifyListeners();
@@ -309,6 +343,9 @@ class HodlProvider extends ChangeNotifier {
     // Check automatic achievements
     _checkAutomaticAchievements();
 
+    // Check 5-day HODL dividend payouts
+    _checkDividends();
+
     // Occasionally add simulated live trade (every ~3-5 seconds)
     if (_random.nextInt(10) < 4) {
       _addSimulatedLiveTrade();
@@ -318,6 +355,57 @@ class HodlProvider extends ChangeNotifier {
     _buildChartSpots();
 
     notifyListeners();
+  }
+
+  // 5일 연속 무발사/노야동 존버 시 정기 배당금 (+1,500P) 지급
+  Future<void> _checkDividends() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // 1. 딸스피 5일 주기 배당 체크
+    final ttalDays = _ttalspiElapsed.inDays;
+    final ttalspiEligible = ttalDays ~/ 5;
+    if (ttalspiEligible > _ttalspiDividendPayouts) {
+      final newPayouts = ttalspiEligible - _ttalspiDividendPayouts;
+      final bonus = newPayouts * 1500.0;
+      _ttalspiBasePoints += bonus;
+      _ttalspiDividendPayouts = ttalspiEligible;
+      await prefs.setDouble(_keyTtalspiBasePoints, _ttalspiBasePoints);
+      await prefs.setInt(_keyTtalspiDividendPayouts, _ttalspiDividendPayouts);
+
+      _liveOrders.insert(
+        0,
+        OrderBookItem(
+          time: '방금',
+          title: '💰 정기 배당금 입금',
+          amount: '딸스피 ${ttalspiEligible * 5}일 연속 존버 달성! 주주 환원 배당금 +${bonus.toInt()}P 입금',
+          isBuy: true,
+        ),
+      );
+      await unlockAchievement('DIVIDEND_5DAYS', ticker: TickerType.ttalspi);
+    }
+
+    // 2. 야동스피 5일 주기 배당 체크
+    final yadongDays = _yadongspiElapsed.inDays;
+    final yadongEligible = yadongDays ~/ 5;
+    if (yadongEligible > _yadongspiDividendPayouts) {
+      final newPayouts = yadongEligible - _yadongspiDividendPayouts;
+      final bonus = newPayouts * 1500.0;
+      _yadongspiBasePoints += bonus;
+      _yadongspiDividendPayouts = yadongEligible;
+      await prefs.setDouble(_keyYadongspiBasePoints, _yadongspiBasePoints);
+      await prefs.setInt(_keyYadongspiDividendPayouts, _yadongspiDividendPayouts);
+
+      _liveOrders.insert(
+        0,
+        OrderBookItem(
+          time: '방금',
+          title: '💰 정기 배당금 입금',
+          amount: '야동스피 ${yadongEligible * 5}일 연속 존버 달성! 주주 환원 배당금 +${bonus.toInt()}P 입금',
+          isBuy: true,
+        ),
+      );
+      await unlockAchievement('DIVIDEND_5DAYS', ticker: TickerType.yadongspi);
+    }
   }
 
   void _updateCalculations() {
@@ -815,14 +903,15 @@ class HodlProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Panic Sell / Liquidation (상장폐지 및 -2,000P or -4,000P 폭락)
+  // Panic Sell / Liquidation (상장폐지 및 딸스피 -1,000P / 야동스피 -2,000P 폭락, 2X 레버리지 시 2배)
   Future<void> panicSellAndLiquidate({
     required String reason,
     required String note,
   }) async {
     final isYadong = _activeTicker == TickerType.yadongspi;
     final now = DateTime.now();
-    final int lossAmount = _isLeverage2x ? 4000 : 2000;
+    final int baseLoss = isYadong ? 2000 : 1000;
+    final int lossAmount = _isLeverage2x ? baseLoss * 2 : baseLoss;
     final formattedReason = _isLeverage2x ? '$reason [2X 레버리지 반대매매 깡통]' : reason;
 
     // 1. 이번 종목 달성 업적 목록 수집 (박제용)
@@ -847,14 +936,16 @@ class HodlProvider extends ChangeNotifier {
 
     final prefs = await SharedPreferences.getInstance();
 
-    // 2. 포인트 감점(-2,000P 또는 2X 레버리지 시 -4,000P) 적용 및 타이머 재설정
+    // 2. 포인트 감점 적용 및 타이머/배당금 카운트 재설정
     if (isYadong) {
       _yadongspiBasePoints = _yadongspiPoints - lossAmount.toDouble();
       _yadongspiStartTime = now;
       _yadongspiElapsed = Duration.zero;
       _yadongspiPoints = _yadongspiBasePoints;
+      _yadongspiDividendPayouts = 0;
       await prefs.setDouble(_keyYadongspiBasePoints, _yadongspiBasePoints);
       await prefs.setString(_keyYadongspiStartTime, now.toIso8601String());
+      await prefs.setInt(_keyYadongspiDividendPayouts, 0);
 
       // 야동스피 도전과제만 리셋
       _yadongspiUnlockedIds.clear();
@@ -867,8 +958,10 @@ class HodlProvider extends ChangeNotifier {
       _ttalspiStartTime = now;
       _ttalspiElapsed = Duration.zero;
       _ttalspiPoints = _ttalspiBasePoints;
+      _ttalspiDividendPayouts = 0;
       await prefs.setDouble(_keyTtalspiBasePoints, _ttalspiBasePoints);
       await prefs.setString(_keyTtalspiStartTime, now.toIso8601String());
+      await prefs.setInt(_keyTtalspiDividendPayouts, 0);
 
       // 딸스피 도전과제만 리셋
       _ttalspiUnlockedIds.clear();

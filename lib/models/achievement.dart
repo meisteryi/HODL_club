@@ -1804,6 +1804,15 @@ class Achievement {
         rewardTitle: '불멸의 클린러',
         category: 'yadongspi',
       ),
+      const Achievement(
+        id: 'DIVIDEND_5DAYS',
+        title: '정기 배당금 수령: 갓생 연금 개시',
+        subtitle: '연속 5일 존버 달성 보너스',
+        description: '연속 5일 존버 달성으로 +1,500P 주주환원 배당금 입금! 도파민 주식 고배당주 등극.',
+        icon: '💰',
+        rewardTitle: '고배당 대주주',
+        category: 'all',
+      ),
     ];
   }
 }

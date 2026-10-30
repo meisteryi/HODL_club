@@ -127,8 +127,8 @@ class _LiquidationModalState extends State<LiquidationModal> {
                   ),
                   Text(
                     provider.isLeverage2x
-                        ? '🚨 2X 레버리지 반대매매! ${activeTicker.nameKo} 지수 -4,000P 깡통 청산'
-                        : '지금 리셋하면 ${activeTicker.nameKo} 지수 -2,000P 폭락 처리됩니다',
+                        ? '🚨 2X 레버리지 반대매매! ${activeTicker.nameKo} 지수 -${provider.currentLossAmount}P 깡통 청산'
+                        : '지금 리셋하면 ${activeTicker.nameKo} 지수 -${provider.currentLossAmount}P 폭락 처리됩니다',
                     style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
                   ),
                 ],
@@ -156,7 +156,9 @@ class _LiquidationModalState extends State<LiquidationModal> {
                 style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
               ),
               Text(
-                provider.isLeverage2x ? '-4,000 P (반대매매)' : '-2,000 P 폭락',
+                provider.isLeverage2x
+                    ? '-${provider.currentLossAmount} P (반대매매)'
+                    : '-${provider.currentLossAmount} P 폭락',
                 style: TextStyle(
                   color: provider.isLeverage2x ? AppColors.gold : AppColors.electricRed,
                   fontSize: 14,
@@ -351,7 +353,9 @@ class _LiquidationModalState extends State<LiquidationModal> {
               const SizedBox(height: 6),
               _buildSummaryRow(
                 '지수 변동',
-                provider.isLeverage2x ? '-4,000 P (2X 깡통 청산) 📉' : '-2,000 P 폭락 📉',
+                provider.isLeverage2x
+                    ? '-${provider.currentLossAmount} P (2X 깡통 청산) 📉'
+                    : '-${provider.currentLossAmount} P 폭락 📉',
                 color: AppColors.electricRed,
               ),
               const SizedBox(height: 6),

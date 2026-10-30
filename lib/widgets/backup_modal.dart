@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
-import '../models/ticker_type.dart';
 import '../providers/hodl_provider.dart';
 import '../utils/web_file_helper.dart';
 
@@ -320,14 +319,14 @@ class _BackupModalState extends State<BackupModal> {
                         Expanded(
                           child: _buildDataChip(
                             '🍆 딸스피',
-                            '${ttalspiDays}일차 (${provider.ttalspiPoints.toStringAsFixed(0)}P)',
+                            '$ttalspiDays일차 (${provider.ttalspiPoints.toStringAsFixed(0)}P)',
                           ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: _buildDataChip(
                             '🔞 야동스피',
-                            '${yadongspiDays}일차 (${provider.yadongspiPoints.toStringAsFixed(0)}P)',
+                            '$yadongspiDays일차 (${provider.yadongspiPoints.toStringAsFixed(0)}P)',
                           ),
                         ),
                       ],

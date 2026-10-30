@@ -97,18 +97,18 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
                               ),
                             ],
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: AppColors.cardSurface,
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: AppColors.border),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: AppColors.cardSurface,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: AppColors.border),
+                                ),
+                                child: Text(
                                   '${activeTicker.code} MTS',
                                   style: const TextStyle(
                                     color: AppColors.gold,
@@ -117,8 +117,46 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
                                     fontFamily: 'monospace',
                                   ),
                                 ),
-                              ],
-                            ),
+                              ),
+                              const SizedBox(width: 8),
+                              Tooltip(
+                                message: '데이터 백업 & 복원',
+                                child: InkWell(
+                                  onTap: () => BackupModal.show(context),
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 7, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.cardSurface,
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: AppColors.gold.withValues(alpha: 0.4),
+                                      ),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.cloud_sync,
+                                          color: AppColors.gold,
+                                          size: 14,
+                                        ),
+                                        SizedBox(width: 4),
+                                        Text(
+                                          '백업',
+                                          style: TextStyle(
+                                            color: AppColors.gold,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       );

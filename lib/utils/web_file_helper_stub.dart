@@ -6,3 +6,4 @@ Future<String?> pickJsonFile() async {
   // Stub for non-web environments
   return null;
 }
+

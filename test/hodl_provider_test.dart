@@ -127,5 +127,36 @@ void main() {
 
       provider.dispose();
     });
+
+    test('Backup export and import restores full state', () async {
+      final provider = HodlProvider();
+      await Future.delayed(const Duration(milliseconds: 50));
+
+      // 1. 특정 상태 만들기
+      provider.switchTicker(TickerType.yadongspi);
+      await provider.toggleLeverage(); // 2X 모드
+      await provider.triggerCircuitBreakerSuccess();
+
+      // 2. Export
+      final exportedJson = await provider.exportBackupData();
+      expect(exportedJson.contains('HODL_CLUB'), isTrue);
+      expect(exportedJson.contains('yadongspi'), isTrue);
+
+      // 3. Provider 상태 리셋(초기화) 시뮬레이션
+      SharedPreferences.setMockInitialValues({});
+      final newProvider = HodlProvider();
+      await Future.delayed(const Duration(milliseconds: 50));
+      expect(newProvider.isLeverage2x, isFalse);
+
+      // 4. Import 복원
+      final success = await newProvider.importBackupData(exportedJson);
+      expect(success, isTrue);
+      expect(newProvider.activeTicker, TickerType.yadongspi);
+      expect(newProvider.isLeverage2x, isTrue);
+      expect(newProvider.circuitBreakerCount, greaterThanOrEqualTo(1));
+
+      provider.dispose();
+      newProvider.dispose();
+    });
   });
 }

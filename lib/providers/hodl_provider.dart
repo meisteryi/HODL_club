@@ -35,29 +35,36 @@ class HodlProvider extends ChangeNotifier {
   static const String _keyTtalspiAchievements = 'hodl_ttalspi_unlocked_achievements';
   static const String _keyYadongspiAchievements = 'hodl_yadongspi_unlocked_achievements';
   static const String _keySafariDismissed = 'hodl_safari_dismissed';
-  static const String _keyIsLeverage2x = 'hodl_is_leverage_2x';
+  static const String _keyIsLeverage2x = 'hodl_is_leverage_2x'; // legacy
+  static const String _keyTtalspiIsLeverage2x = 'hodl_ttalspi_is_leverage_2x';
+  static const String _keyYadongspiIsLeverage2x = 'hodl_yadongspi_is_leverage_2x';
   static const String _keyTtalspiDividendPayouts = 'hodl_ttalspi_dividend_payouts';
   static const String _keyYadongspiDividendPayouts = 'hodl_yadongspi_dividend_payouts';
+  static const String _keyTtalspiPeriodStartTime = 'hodl_ttalspi_period_start_time';
+  static const String _keyYadongspiPeriodStartTime = 'hodl_yadongspi_period_start_time';
 
   TickerType _activeTicker = TickerType.ttalspi;
   bool _isInitialized = false;
-  bool _isLeverage2x = false;
 
   // 딸스피 (DOSP) state
   DateTime? _ttalspiStartTime;
+  DateTime? _ttalspiPeriodStartTime;
   double _ttalspiBasePoints = 0.0;
   Duration _ttalspiElapsed = Duration.zero;
   double _ttalspiPoints = 0.0;
   Set<String> _ttalspiUnlockedIds = {};
   int _ttalspiDividendPayouts = 0;
+  bool _ttalspiIsLeverage2x = false;
 
   // 야동스피 (YDSP) state
   DateTime? _yadongspiStartTime;
+  DateTime? _yadongspiPeriodStartTime;
   double _yadongspiBasePoints = 0.0;
   Duration _yadongspiElapsed = Duration.zero;
   double _yadongspiPoints = 0.0;
   Set<String> _yadongspiUnlockedIds = {};
   int _yadongspiDividendPayouts = 0;
+  bool _yadongspiIsLeverage2x = false;
 
   double _jitter = 0.0;
 
@@ -93,7 +100,13 @@ class HodlProvider extends ChangeNotifier {
   // Getters
   bool get isInitialized => _isInitialized;
   TickerType get activeTicker => _activeTicker;
-  bool get isLeverage2x => _isLeverage2x;
+
+  // 종목별 독립 2X 레버리지 상태
+  bool isLeverage2xFor(TickerType ticker) =>
+      ticker == TickerType.ttalspi ? _ttalspiIsLeverage2x : _yadongspiIsLeverage2x;
+  bool get isLeverage2x => isLeverage2xFor(_activeTicker);
+  bool get ttalspiIsLeverage2x => _ttalspiIsLeverage2x;
+  bool get yadongspiIsLeverage2x => _yadongspiIsLeverage2x;
 
   // Active ticker specific getters
   DateTime? get startTime =>
@@ -112,7 +125,8 @@ class HodlProvider extends ChangeNotifier {
   int getLossAmountFor(TickerType ticker) {
     final isYadong = ticker == TickerType.yadongspi;
     final baseLoss = isYadong ? 2000 : 1000;
-    return _isLeverage2x ? baseLoss * 2 : baseLoss;
+    final isLeverage = isLeverage2xFor(ticker);
+    return isLeverage ? baseLoss * 2 : baseLoss;
   }
 
   // 5일 연속 존버 정기 배당금 (회당 +1,500P) 상태
@@ -227,6 +241,8 @@ class HodlProvider extends ChangeNotifier {
       _ttalspiStartTime = DateTime.now();
       await prefs.setString(_keyTtalspiStartTime, _ttalspiStartTime!.toIso8601String());
     }
+    final ttalPeriodStr = prefs.getString(_keyTtalspiPeriodStartTime);
+    _ttalspiPeriodStartTime = ttalPeriodStr != null ? DateTime.tryParse(ttalPeriodStr) : _ttalspiStartTime;
     _ttalspiBasePoints = prefs.getDouble(_keyTtalspiBasePoints) ?? 0.0;
 
     // 3. 야동스피 State
@@ -237,10 +253,14 @@ class HodlProvider extends ChangeNotifier {
       _yadongspiStartTime = DateTime.now();
       await prefs.setString(_keyYadongspiStartTime, _yadongspiStartTime!.toIso8601String());
     }
+    final yadongPeriodStr = prefs.getString(_keyYadongspiPeriodStartTime);
+    _yadongspiPeriodStartTime = yadongPeriodStr != null ? DateTime.tryParse(yadongPeriodStr) : _yadongspiStartTime;
     _yadongspiBasePoints = prefs.getDouble(_keyYadongspiBasePoints) ?? 0.0;
 
     _safariPromptDismissed = prefs.getBool(_keySafariDismissed) ?? false;
-    _isLeverage2x = prefs.getBool(_keyIsLeverage2x) ?? false;
+    final legacyLeverage = prefs.getBool(_keyIsLeverage2x) ?? false;
+    _ttalspiIsLeverage2x = prefs.getBool(_keyTtalspiIsLeverage2x) ?? legacyLeverage;
+    _yadongspiIsLeverage2x = prefs.getBool(_keyYadongspiIsLeverage2x) ?? legacyLeverage;
     _ttalspiDividendPayouts = prefs.getInt(_keyTtalspiDividendPayouts) ?? 0;
     _yadongspiDividendPayouts = prefs.getInt(_keyYadongspiDividendPayouts) ?? 0;
 
@@ -290,44 +310,73 @@ class HodlProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> toggleLeverage() async {
+  Future<void> toggleLeverage({TickerType? ticker}) async {
+    final target = ticker ?? _activeTicker;
     final now = DateTime.now();
-    // Snapshot base points so switching leverage rate preserves previously accumulated points
     _updateCalculations();
-    _ttalspiBasePoints = _ttalspiPoints;
-    _ttalspiStartTime = now;
-    _yadongspiBasePoints = _yadongspiPoints;
-    _yadongspiStartTime = now;
-
-    _isLeverage2x = !_isLeverage2x;
 
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_keyIsLeverage2x, _isLeverage2x);
-    await prefs.setDouble(_keyTtalspiBasePoints, _ttalspiBasePoints);
-    await prefs.setString(_keyTtalspiStartTime, now.toIso8601String());
-    await prefs.setDouble(_keyYadongspiBasePoints, _yadongspiBasePoints);
-    await prefs.setString(_keyYadongspiStartTime, now.toIso8601String());
 
-    if (_isLeverage2x) {
-      _liveOrders.insert(
-        0,
-        OrderBookItem(
-          time: '방금',
-          title: '야수의 심장',
-          amount: '신용 2X 풀미수 몰빵!! 뇌 녹아내리는 중 ㅋㅋㅋ',
-          isBuy: true,
-        ),
-      );
+    if (target == TickerType.ttalspi) {
+      _ttalspiBasePoints = _ttalspiPoints;
+      _ttalspiPeriodStartTime = now;
+      _ttalspiIsLeverage2x = !_ttalspiIsLeverage2x;
+
+      await prefs.setBool(_keyTtalspiIsLeverage2x, _ttalspiIsLeverage2x);
+      await prefs.setDouble(_keyTtalspiBasePoints, _ttalspiBasePoints);
+      await prefs.setString(_keyTtalspiPeriodStartTime, now.toIso8601String());
+
+      if (_ttalspiIsLeverage2x) {
+        _liveOrders.insert(
+          0,
+          OrderBookItem(
+            time: '방금',
+            title: '야수의 심장',
+            amount: '딸스피 2X 레버리지 풀미수 가동! (하루 +2,000P / 상폐 -2,000P)',
+            isBuy: true,
+          ),
+        );
+      } else {
+        _liveOrders.insert(
+          0,
+          OrderBookItem(
+            time: '방금',
+            title: '안전제일',
+            amount: '딸스피 1X 정석 존버 모드로 안전 복귀',
+            isBuy: true,
+          ),
+        );
+      }
     } else {
-      _liveOrders.insert(
-        0,
-        OrderBookItem(
-          time: '방금',
-          title: '쫄보 갤러',
-          amount: '1X 정석 존버 모드로 안전 복귀',
-          isBuy: true,
-        ),
-      );
+      _yadongspiBasePoints = _yadongspiPoints;
+      _yadongspiPeriodStartTime = now;
+      _yadongspiIsLeverage2x = !_yadongspiIsLeverage2x;
+
+      await prefs.setBool(_keyYadongspiIsLeverage2x, _yadongspiIsLeverage2x);
+      await prefs.setDouble(_keyYadongspiBasePoints, _yadongspiBasePoints);
+      await prefs.setString(_keyYadongspiPeriodStartTime, now.toIso8601String());
+
+      if (_yadongspiIsLeverage2x) {
+        _liveOrders.insert(
+          0,
+          OrderBookItem(
+            time: '방금',
+            title: '야수의 심장',
+            amount: '야동스피 2X 레버리지 풀미수 가동! (하루 +2,000P / 상폐 -4,000P)',
+            isBuy: true,
+          ),
+        );
+      } else {
+        _liveOrders.insert(
+          0,
+          OrderBookItem(
+            time: '방금',
+            title: '클린 정석',
+            amount: '야동스피 1X 정석 존버 모드로 안전 복귀',
+            isBuy: true,
+          ),
+        );
+      }
     }
 
     _updateCalculations();
@@ -412,21 +461,25 @@ class HodlProvider extends ChangeNotifier {
   void _updateCalculations() {
     final now = DateTime.now();
 
-    // 1X: 1000 P / day, 2X Leverage: 2000 P / day
-    final double multiplier = _isLeverage2x ? 2.0 : 1.0;
-    final double pointsPerSecond = (1000.0 / 86400.0) * multiplier;
-
-    // 1. 딸스피 계산
+    // 1. 딸스피 계산 (딸스피 개별 레버리지 배율 적용)
     if (_ttalspiStartTime != null) {
       _ttalspiElapsed = now.difference(_ttalspiStartTime!);
-      final accumulated = _ttalspiElapsed.inSeconds * pointsPerSecond;
+      final double ttalMultiplier = _ttalspiIsLeverage2x ? 2.0 : 1.0;
+      final double ttalPointsPerSecond = (1000.0 / 86400.0) * ttalMultiplier;
+      final periodStart = _ttalspiPeriodStartTime ?? _ttalspiStartTime!;
+      final secondsInPeriod = now.difference(periodStart).inSeconds;
+      final accumulated = (secondsInPeriod > 0 ? secondsInPeriod : 0) * ttalPointsPerSecond;
       _ttalspiPoints = _ttalspiBasePoints + accumulated;
     }
 
-    // 2. 야동스피 계산
+    // 2. 야동스피 계산 (야동스피 개별 레버리지 배율 적용)
     if (_yadongspiStartTime != null) {
       _yadongspiElapsed = now.difference(_yadongspiStartTime!);
-      final accumulated = _yadongspiElapsed.inSeconds * pointsPerSecond;
+      final double yadongMultiplier = _yadongspiIsLeverage2x ? 2.0 : 1.0;
+      final double yadongPointsPerSecond = (1000.0 / 86400.0) * yadongMultiplier;
+      final periodStart = _yadongspiPeriodStartTime ?? _yadongspiStartTime!;
+      final secondsInPeriod = now.difference(periodStart).inSeconds;
+      final accumulated = (secondsInPeriod > 0 ? secondsInPeriod : 0) * yadongPointsPerSecond;
       _yadongspiPoints = _yadongspiBasePoints + accumulated;
     }
   }
@@ -911,9 +964,10 @@ class HodlProvider extends ChangeNotifier {
   }) async {
     final isYadong = _activeTicker == TickerType.yadongspi;
     final now = DateTime.now();
+    final isLeverage = isLeverage2xFor(_activeTicker);
     final int baseLoss = isYadong ? 2000 : 1000;
-    final int lossAmount = _isLeverage2x ? baseLoss * 2 : baseLoss;
-    final formattedReason = _isLeverage2x ? '$reason [2X 레버리지 반대매매 깡통]' : reason;
+    final int lossAmount = isLeverage ? baseLoss * 2 : baseLoss;
+    final formattedReason = isLeverage ? '$reason [2X 레버리지 반대매매 깡통]' : reason;
 
     // 1. 이번 종목 달성 업적 목록 수집 (박제용)
     final achievedBadges = currentTickerAchievements
@@ -941,11 +995,13 @@ class HodlProvider extends ChangeNotifier {
     if (isYadong) {
       _yadongspiBasePoints = _yadongspiPoints - lossAmount.toDouble();
       _yadongspiStartTime = now;
+      _yadongspiPeriodStartTime = now;
       _yadongspiElapsed = Duration.zero;
       _yadongspiPoints = _yadongspiBasePoints;
       _yadongspiDividendPayouts = 0;
       await prefs.setDouble(_keyYadongspiBasePoints, _yadongspiBasePoints);
       await prefs.setString(_keyYadongspiStartTime, now.toIso8601String());
+      await prefs.setString(_keyYadongspiPeriodStartTime, now.toIso8601String());
       await prefs.setInt(_keyYadongspiDividendPayouts, 0);
 
       // 야동스피 도전과제만 리셋
@@ -957,11 +1013,13 @@ class HodlProvider extends ChangeNotifier {
     } else {
       _ttalspiBasePoints = _ttalspiPoints - lossAmount.toDouble();
       _ttalspiStartTime = now;
+      _ttalspiPeriodStartTime = now;
       _ttalspiElapsed = Duration.zero;
       _ttalspiPoints = _ttalspiBasePoints;
       _ttalspiDividendPayouts = 0;
       await prefs.setDouble(_keyTtalspiBasePoints, _ttalspiBasePoints);
       await prefs.setString(_keyTtalspiStartTime, now.toIso8601String());
+      await prefs.setString(_keyTtalspiPeriodStartTime, now.toIso8601String());
       await prefs.setInt(_keyTtalspiDividendPayouts, 0);
 
       // 딸스피 도전과제만 리셋
@@ -990,6 +1048,61 @@ class HodlProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // 사용자가 특정 종목의 시작 시간을 직접 설정 (과거 시점 지정)
+  Future<void> updateStartTime(TickerType ticker, DateTime newStartTime) async {
+    final now = DateTime.now();
+    if (newStartTime.isAfter(now)) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final elapsedSec = now.difference(newStartTime).inSeconds;
+    final isLeverage = isLeverage2xFor(ticker);
+    final double pointsPerSecond = (1000.0 / 86400.0) * (isLeverage ? 2.0 : 1.0);
+    final calculatedPoints = elapsedSec * pointsPerSecond;
+
+    if (ticker == TickerType.ttalspi) {
+      _ttalspiStartTime = newStartTime;
+      _ttalspiPeriodStartTime = newStartTime;
+      _ttalspiBasePoints = 0.0;
+      _ttalspiElapsed = now.difference(newStartTime);
+      _ttalspiPoints = calculatedPoints;
+      _ttalspiDividendPayouts = _ttalspiElapsed.inDays ~/ 5;
+
+      await prefs.setString(_keyTtalspiStartTime, newStartTime.toIso8601String());
+      await prefs.setString(_keyTtalspiPeriodStartTime, newStartTime.toIso8601String());
+      await prefs.setDouble(_keyTtalspiBasePoints, 0.0);
+      await prefs.setInt(_keyTtalspiDividendPayouts, _ttalspiDividendPayouts);
+    } else {
+      _yadongspiStartTime = newStartTime;
+      _yadongspiPeriodStartTime = newStartTime;
+      _yadongspiBasePoints = 0.0;
+      _yadongspiElapsed = now.difference(newStartTime);
+      _yadongspiPoints = calculatedPoints;
+      _yadongspiDividendPayouts = _yadongspiElapsed.inDays ~/ 5;
+
+      await prefs.setString(_keyYadongspiStartTime, newStartTime.toIso8601String());
+      await prefs.setString(_keyYadongspiPeriodStartTime, newStartTime.toIso8601String());
+      await prefs.setDouble(_keyYadongspiBasePoints, 0.0);
+      await prefs.setInt(_keyYadongspiDividendPayouts, _yadongspiDividendPayouts);
+    }
+
+    _updateCalculations();
+    _buildChartSpots();
+    await _checkAutomaticAchievements();
+    await _checkDividends();
+
+    _liveOrders.insert(
+      0,
+      OrderBookItem(
+        time: '방금',
+        title: '⏱️ 시작 시간 설정 완료',
+        amount: '${ticker.nameKo} 존버 시작일시 설정 적용 완료',
+        isBuy: true,
+      ),
+    );
+
+    notifyListeners();
+  }
+
   // 브라우저 SharedPreferences 데이터 전체 JSON 내보내기 (Export)
   Future<String> exportBackupData() async {
     _updateCalculations();
@@ -999,7 +1112,7 @@ class HodlProvider extends ChangeNotifier {
       'version': 1,
       'exportedAt': DateTime.now().toIso8601String(),
       'activeTicker': _activeTicker.name,
-      'isLeverage2x': _isLeverage2x,
+      'isLeverage2x': isLeverage2x,
       'safariPromptDismissed': _safariPromptDismissed,
       'circuitBreakerCount': _circuitBreakerCount,
       'ttalspi': {
@@ -1008,6 +1121,7 @@ class HodlProvider extends ChangeNotifier {
         'points': _ttalspiPoints,
         'elapsedSeconds': _ttalspiElapsed.inSeconds,
         'dividendPayouts': _ttalspiDividendPayouts,
+        'isLeverage2x': _ttalspiIsLeverage2x,
         'unlockedAchievements': _ttalspiUnlockedIds.toList(),
       },
       'yadongspi': {
@@ -1016,6 +1130,7 @@ class HodlProvider extends ChangeNotifier {
         'points': _yadongspiPoints,
         'elapsedSeconds': _yadongspiElapsed.inSeconds,
         'dividendPayouts': _yadongspiDividendPayouts,
+        'isLeverage2x': _yadongspiIsLeverage2x,
         'unlockedAchievements': _yadongspiUnlockedIds.toList(),
       },
       'liquidationHistory': _liquidationHistory.map((r) => r.toJson()).toList(),
@@ -1049,8 +1164,10 @@ class HodlProvider extends ChangeNotifier {
       }
 
       if (decoded.containsKey('isLeverage2x') && decoded['isLeverage2x'] is bool) {
-        _isLeverage2x = decoded['isLeverage2x'] as bool;
-        await prefs.setBool(_keyIsLeverage2x, _isLeverage2x);
+        final legacyVal = decoded['isLeverage2x'] as bool;
+        _ttalspiIsLeverage2x = legacyVal;
+        _yadongspiIsLeverage2x = legacyVal;
+        await prefs.setBool(_keyIsLeverage2x, legacyVal);
       }
 
       if (decoded.containsKey('safariPromptDismissed') && decoded['safariPromptDismissed'] is bool) {
@@ -1067,7 +1184,9 @@ class HodlProvider extends ChangeNotifier {
         final ttalMap = decoded['ttalspi'] as Map<String, dynamic>;
         if (ttalMap['startTime'] != null) {
           _ttalspiStartTime = DateTime.tryParse(ttalMap['startTime'].toString()) ?? DateTime.now();
+          _ttalspiPeriodStartTime = _ttalspiStartTime;
           await prefs.setString(_keyTtalspiStartTime, _ttalspiStartTime!.toIso8601String());
+          await prefs.setString(_keyTtalspiPeriodStartTime, _ttalspiPeriodStartTime!.toIso8601String());
         }
         if (ttalMap['basePoints'] != null) {
           _ttalspiBasePoints = (ttalMap['basePoints'] as num).toDouble();
@@ -1076,6 +1195,10 @@ class HodlProvider extends ChangeNotifier {
         if (ttalMap['dividendPayouts'] != null) {
           _ttalspiDividendPayouts = (ttalMap['dividendPayouts'] as num).toInt();
           await prefs.setInt(_keyTtalspiDividendPayouts, _ttalspiDividendPayouts);
+        }
+        if (ttalMap['isLeverage2x'] is bool) {
+          _ttalspiIsLeverage2x = ttalMap['isLeverage2x'] as bool;
+          await prefs.setBool(_keyTtalspiIsLeverage2x, _ttalspiIsLeverage2x);
         }
         if (ttalMap['unlockedAchievements'] is List) {
           final list = (ttalMap['unlockedAchievements'] as List).map((e) => e.toString()).toList();
@@ -1089,7 +1212,9 @@ class HodlProvider extends ChangeNotifier {
         final yadongMap = decoded['yadongspi'] as Map<String, dynamic>;
         if (yadongMap['startTime'] != null) {
           _yadongspiStartTime = DateTime.tryParse(yadongMap['startTime'].toString()) ?? DateTime.now();
+          _yadongspiPeriodStartTime = _yadongspiStartTime;
           await prefs.setString(_keyYadongspiStartTime, _yadongspiStartTime!.toIso8601String());
+          await prefs.setString(_keyYadongspiPeriodStartTime, _yadongspiPeriodStartTime!.toIso8601String());
         }
         if (yadongMap['basePoints'] != null) {
           _yadongspiBasePoints = (yadongMap['basePoints'] as num).toDouble();
@@ -1098,6 +1223,10 @@ class HodlProvider extends ChangeNotifier {
         if (yadongMap['dividendPayouts'] != null) {
           _yadongspiDividendPayouts = (yadongMap['dividendPayouts'] as num).toInt();
           await prefs.setInt(_keyYadongspiDividendPayouts, _yadongspiDividendPayouts);
+        }
+        if (yadongMap['isLeverage2x'] is bool) {
+          _yadongspiIsLeverage2x = yadongMap['isLeverage2x'] as bool;
+          await prefs.setBool(_keyYadongspiIsLeverage2x, _yadongspiIsLeverage2x);
         }
         if (yadongMap['unlockedAchievements'] is List) {
           final list = (yadongMap['unlockedAchievements'] as List).map((e) => e.toString()).toList();

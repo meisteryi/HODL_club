@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
 import '../models/ticker_type.dart';
 import '../providers/hodl_provider.dart';
+import 'start_time_picker_modal.dart';
 
 class HodlTimerWidget extends StatelessWidget {
   final TickerType? ticker;
@@ -16,6 +18,13 @@ class HodlTimerWidget extends StatelessWidget {
     final duration = ticker != null
         ? (ticker == TickerType.ttalspi ? provider.ttalspiElapsed : provider.yadongspiElapsed)
         : provider.elapsedDuration;
+
+    final startTime = activeTicker == TickerType.ttalspi
+        ? provider.ttalspiStartTime
+        : provider.yadongspiStartTime;
+    final startTimeStr = startTime != null
+        ? DateFormat('yyyy.MM.dd HH:mm').format(startTime)
+        : '-';
 
     final days = duration.inDays;
     final hours = duration.inHours % 24;
@@ -55,20 +64,53 @@ class HodlTimerWidget extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.darkGreen,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  activeTicker.timerStatus,
-                  style: const TextStyle(
-                    color: AppColors.neonGreen,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  InkWell(
+                    onTap: () => StartTimePickerModal.show(context, activeTicker),
+                    borderRadius: BorderRadius.circular(4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.cardSurface,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: AppColors.gold.withValues(alpha: 0.6)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.edit_calendar, size: 11, color: AppColors.gold),
+                          SizedBox(width: 3),
+                          Text(
+                            '시간 수정',
+                            style: TextStyle(
+                              color: AppColors.gold,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppColors.darkGreen,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      activeTicker.timerStatus,
+                      style: const TextStyle(
+                        color: AppColors.neonGreen,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -84,6 +126,35 @@ class HodlTimerWidget extends StatelessWidget {
               _buildColon(),
               _buildTimeUnit(seconds.toString().padLeft(2, '0'), 'SECS (초)', isAccent: true),
             ],
+          ),
+          const SizedBox(height: 10),
+          // Clickable Start Time Subtitle
+          InkWell(
+            onTap: () => StartTimePickerModal.show(context, activeTicker),
+            borderRadius: BorderRadius.circular(6),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.cardSurface,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.history, size: 12, color: AppColors.textMuted),
+                  const SizedBox(width: 5),
+                  Text(
+                    '${activeTicker == TickerType.ttalspi ? "마지막 발사" : "마지막 시청"}: $startTimeStr (탭하여 시간 변경)',
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),

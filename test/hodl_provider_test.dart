@@ -75,16 +75,19 @@ void main() {
       provider.dispose();
     });
 
-    test('2X Leverage mode toggles and applies double liquidation penalty', () async {
+    test('Independent 2X Leverage mode toggles and applies individual liquidation penalty', () async {
       final provider = HodlProvider();
       await Future.delayed(const Duration(milliseconds: 50));
 
-      expect(provider.isLeverage2x, isFalse);
+      expect(provider.ttalspiIsLeverage2x, isFalse);
+      expect(provider.yadongspiIsLeverage2x, isFalse);
 
-      await provider.toggleLeverage();
-      expect(provider.isLeverage2x, isTrue);
+      // 딸스피만 2X 레버리지 활성화
+      await provider.toggleLeverage(ticker: TickerType.ttalspi);
+      expect(provider.ttalspiIsLeverage2x, isTrue);
+      expect(provider.yadongspiIsLeverage2x, isFalse); // 야동스피는 여전히 1X 유지!
 
-      // 딸스피 2X 레버리지: 2,000P
+      // 딸스피 2X 레버리지 청산: 2,000P
       await provider.panicSellAndLiquidate(
         reason: '야수의 심장 2X 청산 테스트',
         note: '미수 깡통 찼노',
@@ -92,16 +95,26 @@ void main() {
       expect(provider.liquidationHistory.first.simulatedLossAmount, 2000);
       expect(provider.liquidationHistory.first.reason, contains('[2X 레버리지 반대매매 깡통]'));
 
-      // 야동스피 2X 레버리지: 4,000P
+      // 야동스피로 전환 시 야동스피는 여전히 1X 정석 모드여야 함
       provider.switchTicker(TickerType.yadongspi);
+      expect(provider.isLeverage2x, isFalse);
+
+      // 야동스피만 2X 레버리지 활성화
+      await provider.toggleLeverage(ticker: TickerType.yadongspi);
+      expect(provider.yadongspiIsLeverage2x, isTrue);
+      expect(provider.ttalspiIsLeverage2x, isTrue); // 딸스피는 2X 그대로 유지
+
+      // 야동스피 2X 레버리지 청산: 4,000P
       await provider.panicSellAndLiquidate(
         reason: '시크릿 2X 청산 테스트',
         note: '야동 미수 깡통',
       );
       expect(provider.liquidationHistory.first.simulatedLossAmount, 4000);
 
-      await provider.toggleLeverage();
-      expect(provider.isLeverage2x, isFalse);
+      // 야동스피만 레버리지 해제
+      await provider.toggleLeverage(ticker: TickerType.yadongspi);
+      expect(provider.yadongspiIsLeverage2x, isFalse);
+      expect(provider.ttalspiIsLeverage2x, isTrue); // 딸스피는 여전히 2X
 
       provider.dispose();
     });
@@ -157,6 +170,31 @@ void main() {
 
       provider.dispose();
       newProvider.dispose();
+    });
+
+    test('Independent timers for ttalspi and yadongspi with updateStartTime', () async {
+      final provider = HodlProvider();
+      await Future.delayed(const Duration(milliseconds: 50));
+
+      final now = DateTime.now();
+      final ttalStart = now.subtract(const Duration(days: 1, hours: 2));
+      final yadongStart = now.subtract(const Duration(days: 4, hours: 6));
+
+      // 각 종목의 시작 시간을 다르게 설정
+      await provider.updateStartTime(TickerType.ttalspi, ttalStart);
+      await provider.updateStartTime(TickerType.yadongspi, yadongStart);
+
+      // 경과 시간 및 포인트가 독립적으로 계산되는지 검증
+      expect(provider.ttalspiElapsed.inDays, 1);
+      expect(provider.yadongspiElapsed.inDays, 4);
+      expect(provider.ttalspiElapsed != provider.yadongspiElapsed, isTrue);
+
+      // 레버리지 토글 후에도 타이머 경과 시간이 리셋되지 않고 유지되는지 검증
+      await provider.toggleLeverage();
+      expect(provider.ttalspiElapsed.inDays, 1);
+      expect(provider.yadongspiElapsed.inDays, 4);
+
+      provider.dispose();
     });
   });
 }

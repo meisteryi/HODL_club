@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
 import '../models/ticker_type.dart';
 import '../providers/hodl_provider.dart';
+import 'start_time_picker_modal.dart';
 
 class StockTickerHeader extends StatelessWidget {
   final ValueChanged<TickerType>? onTickerSelected;
@@ -35,6 +36,7 @@ class StockTickerHeader extends StatelessWidget {
             children: [
               Expanded(
                 child: _buildTickerTab(
+                  provider: provider,
                   ticker: TickerType.ttalspi,
                   title: '딸스피 (DOSP)',
                   points: provider.ttalspiPoints,
@@ -49,6 +51,7 @@ class StockTickerHeader extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: _buildTickerTab(
+                  provider: provider,
                   ticker: TickerType.yadongspi,
                   title: '야동스피 (YDSP)',
                   points: provider.yadongspiPoints,
@@ -91,6 +94,7 @@ class StockTickerHeader extends StatelessWidget {
   }
 
   Widget _buildTickerTab({
+    required HodlProvider provider,
     required TickerType ticker,
     required String title,
     required double points,
@@ -105,6 +109,7 @@ class StockTickerHeader extends StatelessWidget {
     final durationStr = elapsed.inDays > 0
         ? '${elapsed.inDays}일 ${elapsed.inHours % 24}시간'
         : '${elapsed.inHours}시간 ${elapsed.inMinutes % 60}분';
+    final isLeverage = provider.isLeverage2xFor(ticker);
 
     return InkWell(
       onTap: onTap,
@@ -148,6 +153,25 @@ class StockTickerHeader extends StatelessWidget {
                         fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                       ),
                     ),
+                    if (isLeverage) ...[
+                      const SizedBox(width: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: AppColors.gold.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(3),
+                          border: Border.all(color: AppColors.gold, width: 0.6),
+                        ),
+                        child: const Text(
+                          '2X',
+                          style: TextStyle(
+                            color: AppColors.gold,
+                            fontSize: 8,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
                 if (isSelected)
@@ -393,9 +417,18 @@ class _StockTickerSummaryCardState extends State<StockTickerSummaryCard>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildInfoTag(
-                  ticker == TickerType.ttalspi ? '마지막 발사' : '마지막 시청',
-                  startDateStr,
+                InkWell(
+                  onTap: () => StartTimePickerModal.show(context, ticker),
+                  borderRadius: BorderRadius.circular(6),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildInfoTag(
+                        ticker == TickerType.ttalspi ? '마지막 발사' : '마지막 시청',
+                        '$startDateStr ✏️',
+                      ),
+                    ],
+                  ),
                 ),
                 _buildInfoTag(
                   '통합 테스토스테론',

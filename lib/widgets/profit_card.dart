@@ -29,15 +29,16 @@ class ProfitCard extends StatelessWidget {
     final rank = HodlRank.getRank(duration, ticker: activeTicker);
     final nextRank = _getNextRank(rank, activeTicker);
     final progress = _calculateProgress(duration, rank, nextRank);
-    final lossAmount = provider.currentLossAmount;
+    final isLeverage = provider.isLeverage2xFor(activeTicker);
+    final lossAmount = provider.getLossAmountFor(activeTicker);
 
     final statusCommentary = currentPoints >= 0
-        ? (provider.isLeverage2x
+        ? (isLeverage
             ? '⚡ 2X 레버리지 야수의 심장 탑승 중'
             : (activeTicker == TickerType.ttalspi
                 ? '🔥 테스토스테론 떡상 랠리 중'
                 : '🛡️ 전두엽 도파민 정상화 랠리 중'))
-        : (provider.isLeverage2x
+        : (isLeverage
             ? '🚨 2X 깡통(-${lossAmount}P) 복구 중 ㅠㅠ'
             : '🚨 깡통 페널티(-${lossAmount}P) 복구 진행 중');
 
@@ -48,14 +49,14 @@ class ProfitCard extends StatelessWidget {
         color: AppColors.cardSurface,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: provider.isLeverage2x
+          color: isLeverage
               ? AppColors.gold.withValues(alpha: 0.6)
               : pointsColor.withValues(alpha: 0.3),
-          width: provider.isLeverage2x ? 1.6 : 1.2,
+          width: isLeverage ? 1.6 : 1.2,
         ),
         boxShadow: [
           BoxShadow(
-            color: (provider.isLeverage2x ? AppColors.gold : pointsColor)
+            color: (isLeverage ? AppColors.gold : pointsColor)
                 .withValues(alpha: 0.1),
             blurRadius: 18,
             offset: const Offset(0, 6),
@@ -97,7 +98,7 @@ class ProfitCard extends StatelessWidget {
               Text(
                 statusCommentary,
                 style: TextStyle(
-                  color: provider.isLeverage2x ? AppColors.gold : pointsColor,
+                  color: isLeverage ? AppColors.gold : pointsColor,
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                 ),
@@ -133,7 +134,7 @@ class ProfitCard extends StatelessWidget {
                 color: pointsColor,
                 size: 26,
               ),
-              if (provider.isLeverage2x) ...[
+              if (isLeverage) ...[
                 const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -156,11 +157,11 @@ class ProfitCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            provider.isLeverage2x
-                ? '실시간 ${activeTicker.nameKo} 2X 레버리지 (하루 +2,000P 떡상 / 패닉셀 시 -${provider.currentLossAmount}P 깡통)'
-                : '실시간 ${activeTicker.nameKo} 지수 (시작 0P • 1일 +1,000P • 패닉셀 시 -${provider.currentLossAmount}P)',
+            isLeverage
+                ? '실시간 ${activeTicker.nameKo} 2X 레버리지 (하루 +2,000P 떡상 / 패닉셀 시 -${lossAmount}P 깡통)'
+                : '실시간 ${activeTicker.nameKo} 지수 (시작 0P • 1일 +1,000P • 패닉셀 시 -${lossAmount}P)',
             style: TextStyle(
-              color: provider.isLeverage2x ? AppColors.gold : AppColors.textSecondary,
+              color: isLeverage ? AppColors.gold : AppColors.textSecondary,
               fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
@@ -181,14 +182,14 @@ class ProfitCard extends StatelessWidget {
                 _buildSpecItem('시작 기준 지수', '0.0 P'),
                 _buildSpecItem(
                   '상승 속도',
-                  provider.isLeverage2x ? '+2,000 P / 1일 (2X)' : '+1,000 P / 1일',
-                  isAccent: provider.isLeverage2x,
+                  isLeverage ? '+2,000 P / 1일 (2X)' : '+1,000 P / 1일',
+                  isAccent: isLeverage,
                 ),
                 _buildSpecItem(
                   '상폐 페널티',
-                  provider.isLeverage2x
-                      ? '-${provider.currentLossAmount} P (반대매매)'
-                      : '-${provider.currentLossAmount} P',
+                  isLeverage
+                      ? '-$lossAmount P (반대매매)'
+                      : '-$lossAmount P',
                   isDanger: true,
                 ),
               ],
@@ -256,15 +257,15 @@ class ProfitCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: provider.isLeverage2x
+              color: isLeverage
                   ? AppColors.gold.withValues(alpha: 0.12)
                   : AppColors.surface,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: provider.isLeverage2x
+                color: isLeverage
                     ? AppColors.gold
                     : AppColors.border,
-                width: provider.isLeverage2x ? 1.2 : 0.8,
+                width: isLeverage ? 1.2 : 0.8,
               ),
             ),
             child: Row(
@@ -272,13 +273,13 @@ class ProfitCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: provider.isLeverage2x
+                    color: isLeverage
                         ? AppColors.gold.withValues(alpha: 0.25)
                         : AppColors.cardSurface,
                     shape: BoxShape.circle,
                   ),
                   child: Text(
-                    provider.isLeverage2x ? '⚡' : '🛡️',
+                    isLeverage ? '⚡' : '🛡️',
                     style: const TextStyle(fontSize: 16),
                   ),
                 ),
@@ -289,9 +290,9 @@ class ProfitCard extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          const Text(
-                            '상남자 2X 레버리지 모드',
-                            style: TextStyle(
+                          Text(
+                            '${activeTicker.nameKo} 2X 레버리지',
+                            style: const TextStyle(
                               color: AppColors.textPrimary,
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
@@ -301,15 +302,15 @@ class ProfitCard extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                             decoration: BoxDecoration(
-                              color: provider.isLeverage2x
+                              color: isLeverage
                                   ? AppColors.electricRed.withValues(alpha: 0.2)
                                   : AppColors.cardSurface,
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
-                              provider.isLeverage2x ? '신용 풀미수' : '1X 정석',
+                              isLeverage ? '신용 풀미수' : '1X 정석',
                               style: TextStyle(
-                                color: provider.isLeverage2x
+                                color: isLeverage
                                     ? AppColors.electricRed
                                     : AppColors.textMuted,
                                 fontSize: 9,
@@ -321,11 +322,11 @@ class ProfitCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        provider.isLeverage2x
-                            ? '야수의 심장 탑승! 하루 +2,000P 폭등 / ${activeTicker == TickerType.ttalspi ? "발사" : "시청"} 시 -${provider.currentLossAmount}P 깡통 청산 ㅋㅋ'
-                            : '안전제일 1X 존버 중 (하루 +1,000P / ${activeTicker == TickerType.ttalspi ? "발사" : "시청"} 시 -${provider.currentLossAmount}P)',
+                        isLeverage
+                            ? '야수의 심장 탑승! 하루 +2,000P 폭등 / ${activeTicker == TickerType.ttalspi ? "발사" : "시청"} 시 -${lossAmount}P 깡통 청산 ㅋㅋ'
+                            : '안전제일 1X 존버 중 (하루 +1,000P / ${activeTicker == TickerType.ttalspi ? "발사" : "시청"} 시 -${lossAmount}P)',
                         style: TextStyle(
-                          color: provider.isLeverage2x
+                          color: isLeverage
                               ? AppColors.gold
                               : AppColors.textSecondary,
                           fontSize: 10,
@@ -335,9 +336,9 @@ class ProfitCard extends StatelessWidget {
                   ),
                 ),
                 Switch(
-                  value: provider.isLeverage2x,
+                  value: isLeverage,
                   onChanged: (val) {
-                    provider.toggleLeverage();
+                    provider.toggleLeverage(ticker: activeTicker);
                   },
                   activeThumbColor: AppColors.gold,
                   activeTrackColor: AppColors.gold.withValues(alpha: 0.4),

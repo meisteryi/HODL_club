@@ -989,6 +989,155 @@ class HodlProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // 브라우저 SharedPreferences 데이터 전체 JSON 내보내기 (Export)
+  Future<String> exportBackupData() async {
+    _updateCalculations();
+
+    final data = <String, dynamic>{
+      'app': 'HODL_CLUB',
+      'version': 1,
+      'exportedAt': DateTime.now().toIso8601String(),
+      'activeTicker': _activeTicker.name,
+      'isLeverage2x': _isLeverage2x,
+      'safariPromptDismissed': _safariPromptDismissed,
+      'circuitBreakerCount': _circuitBreakerCount,
+      'ttalspi': {
+        'startTime': _ttalspiStartTime?.toIso8601String(),
+        'basePoints': _ttalspiBasePoints,
+        'points': _ttalspiPoints,
+        'elapsedSeconds': _ttalspiElapsed.inSeconds,
+        'dividendPayouts': _ttalspiDividendPayouts,
+        'unlockedAchievements': _ttalspiUnlockedIds.toList(),
+      },
+      'yadongspi': {
+        'startTime': _yadongspiStartTime?.toIso8601String(),
+        'basePoints': _yadongspiBasePoints,
+        'points': _yadongspiPoints,
+        'elapsedSeconds': _yadongspiElapsed.inSeconds,
+        'dividendPayouts': _yadongspiDividendPayouts,
+        'unlockedAchievements': _yadongspiUnlockedIds.toList(),
+      },
+      'liquidationHistory': _liquidationHistory.map((r) => r.toJson()).toList(),
+    };
+
+    return const JsonEncoder.withIndent('  ').convert(data);
+  }
+
+  // 백업 JSON 데이터를 파싱하여 로컬 브라우저 SharedPreferences에 복원 (Import)
+  Future<bool> importBackupData(String jsonString) async {
+    try {
+      final dynamic decoded = jsonDecode(jsonString);
+      if (decoded is! Map<String, dynamic>) {
+        throw const FormatException('유효하지 않은 백업 데이터 포맷입니다.');
+      }
+
+      if (decoded['app'] != 'HODL_CLUB') {
+        throw const FormatException('HODL 클럽 전용 백업 파일이 아닙니다.');
+      }
+
+      final prefs = await SharedPreferences.getInstance();
+
+      // 1. Settings & Ticker
+      if (decoded.containsKey('activeTicker') && decoded['activeTicker'] is String) {
+        final tickerName = decoded['activeTicker'] as String;
+        _activeTicker = TickerType.values.firstWhere(
+          (t) => t.name == tickerName,
+          orElse: () => TickerType.ttalspi,
+        );
+        await prefs.setString(_keyActiveTicker, _activeTicker.name);
+      }
+
+      if (decoded.containsKey('isLeverage2x') && decoded['isLeverage2x'] is bool) {
+        _isLeverage2x = decoded['isLeverage2x'] as bool;
+        await prefs.setBool(_keyIsLeverage2x, _isLeverage2x);
+      }
+
+      if (decoded.containsKey('safariPromptDismissed') && decoded['safariPromptDismissed'] is bool) {
+        _safariPromptDismissed = decoded['safariPromptDismissed'] as bool;
+        await prefs.setBool(_keySafariDismissed, _safariPromptDismissed);
+      }
+
+      if (decoded.containsKey('circuitBreakerCount') && decoded['circuitBreakerCount'] is num) {
+        _circuitBreakerCount = (decoded['circuitBreakerCount'] as num).toInt();
+      }
+
+      // 2. 딸스피 State
+      if (decoded['ttalspi'] is Map<String, dynamic>) {
+        final ttalMap = decoded['ttalspi'] as Map<String, dynamic>;
+        if (ttalMap['startTime'] != null) {
+          _ttalspiStartTime = DateTime.tryParse(ttalMap['startTime'].toString()) ?? DateTime.now();
+          await prefs.setString(_keyTtalspiStartTime, _ttalspiStartTime!.toIso8601String());
+        }
+        if (ttalMap['basePoints'] != null) {
+          _ttalspiBasePoints = (ttalMap['basePoints'] as num).toDouble();
+          await prefs.setDouble(_keyTtalspiBasePoints, _ttalspiBasePoints);
+        }
+        if (ttalMap['dividendPayouts'] != null) {
+          _ttalspiDividendPayouts = (ttalMap['dividendPayouts'] as num).toInt();
+          await prefs.setInt(_keyTtalspiDividendPayouts, _ttalspiDividendPayouts);
+        }
+        if (ttalMap['unlockedAchievements'] is List) {
+          final list = (ttalMap['unlockedAchievements'] as List).map((e) => e.toString()).toList();
+          _ttalspiUnlockedIds = list.toSet();
+          await prefs.setStringList(_keyTtalspiAchievements, list);
+        }
+      }
+
+      // 3. 야동스피 State
+      if (decoded['yadongspi'] is Map<String, dynamic>) {
+        final yadongMap = decoded['yadongspi'] as Map<String, dynamic>;
+        if (yadongMap['startTime'] != null) {
+          _yadongspiStartTime = DateTime.tryParse(yadongMap['startTime'].toString()) ?? DateTime.now();
+          await prefs.setString(_keyYadongspiStartTime, _yadongspiStartTime!.toIso8601String());
+        }
+        if (yadongMap['basePoints'] != null) {
+          _yadongspiBasePoints = (yadongMap['basePoints'] as num).toDouble();
+          await prefs.setDouble(_keyYadongspiBasePoints, _yadongspiBasePoints);
+        }
+        if (yadongMap['dividendPayouts'] != null) {
+          _yadongspiDividendPayouts = (yadongMap['dividendPayouts'] as num).toInt();
+          await prefs.setInt(_keyYadongspiDividendPayouts, _yadongspiDividendPayouts);
+        }
+        if (yadongMap['unlockedAchievements'] is List) {
+          final list = (yadongMap['unlockedAchievements'] as List).map((e) => e.toString()).toList();
+          _yadongspiUnlockedIds = list.toSet();
+          await prefs.setStringList(_keyYadongspiAchievements, list);
+        }
+      }
+
+      // 4. 청산/회고록 이력
+      if (decoded['liquidationHistory'] is List) {
+        final list = decoded['liquidationHistory'] as List;
+        _liquidationHistory = list
+            .map((item) => LiquidationRecord.fromJson(item is String ? item : jsonEncode(item)))
+            .toList()
+          ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+        final historyJsonList = _liquidationHistory.map((r) => r.toJson()).toList();
+        await prefs.setStringList(_keyHistory, historyJsonList);
+      }
+
+      _updateCalculations();
+      _generateInitialOrders();
+      _buildChartSpots();
+      await _checkDividends();
+
+      _liveOrders.insert(
+        0,
+        OrderBookItem(
+          time: '방금',
+          title: '🔄 데이터 복원 완료',
+          amount: 'MTS 백업 데이터 복구 완료! 갓생 이어가기',
+          isBuy: true,
+        ),
+      );
+
+      notifyListeners();
+      return true;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   @override
   void dispose() {
     _isDisposed = true;

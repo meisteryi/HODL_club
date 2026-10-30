@@ -4,6 +4,7 @@ import '../constants/app_colors.dart';
 import '../models/ticker_type.dart';
 import '../providers/hodl_provider.dart';
 import '../widgets/achievement_toast_overlay.dart';
+import '../widgets/backup_modal.dart';
 import '../widgets/circuit_breaker_modal.dart';
 import 'achievements_screen.dart';
 import 'dashboard_screen.dart';

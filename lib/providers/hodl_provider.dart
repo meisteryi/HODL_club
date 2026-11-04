@@ -119,12 +119,12 @@ class HodlProvider extends ChangeNotifier {
   double get currentPoints =>
       _activeTicker == TickerType.ttalspi ? _ttalspiPoints : _yadongspiPoints;
 
-  // 상폐 페널티 (딸스피: 1X -1,000P / 2X -2,000P, 야동스피: 1X -2,000P / 2X -4,000P)
+  // 상폐 페널티 (딸스피: 1X -1,500P / 2X -3,000P, 야동스피: 1X -2,000P / 2X -4,000P)
   int get currentLossAmount => getLossAmountFor(_activeTicker);
 
   int getLossAmountFor(TickerType ticker) {
     final isYadong = ticker == TickerType.yadongspi;
-    final baseLoss = isYadong ? 2000 : 1000;
+    final baseLoss = isYadong ? 2000 : 1500;
     final isLeverage = isLeverage2xFor(ticker);
     return isLeverage ? baseLoss * 2 : baseLoss;
   }
@@ -332,7 +332,7 @@ class HodlProvider extends ChangeNotifier {
           OrderBookItem(
             time: '방금',
             title: '야수의 심장',
-            amount: '딸스피 2X 레버리지 풀미수 가동! (하루 +2,000P / 상폐 -2,000P)',
+            amount: '딸스피 2X 레버리지 풀미수 가동! (하루 +2,000P / 상폐 -3,000P)',
             isBuy: true,
           ),
         );
@@ -957,7 +957,7 @@ class HodlProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Panic Sell / Liquidation (상장폐지 및 딸스피 -1,000P / 야동스피 -2,000P 폭락, 2X 레버리지 시 2배)
+  // Panic Sell / Liquidation (상장폐지 및 딸스피 -1,500P / 야동스피 -2,000P 폭락, 2X 레버리지 시 2배)
   Future<void> panicSellAndLiquidate({
     required String reason,
     required String note,
@@ -965,8 +965,7 @@ class HodlProvider extends ChangeNotifier {
     final isYadong = _activeTicker == TickerType.yadongspi;
     final now = DateTime.now();
     final isLeverage = isLeverage2xFor(_activeTicker);
-    final int baseLoss = isYadong ? 2000 : 1000;
-    final int lossAmount = isLeverage ? baseLoss * 2 : baseLoss;
+    final int lossAmount = getLossAmountFor(_activeTicker);
     final formattedReason = isLeverage ? '$reason [2X 레버리지 반대매매 깡통]' : reason;
 
     // 1. 이번 종목 달성 업적 목록 수집 (박제용)

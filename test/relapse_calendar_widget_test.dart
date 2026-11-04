@@ -52,11 +52,8 @@ void main() {
     // Check multiple overlapping badge counter 'x2'
     expect(find.text('x2'), findsOneWidget);
 
-    // Tap on today cell to view details
-    final todayFinder = find.text('${now.day}');
-    expect(todayFinder, findsWidgets);
-    await tester.ensureVisible(todayFinder.last);
-    await tester.tap(todayFinder.last, warnIfMissed: false);
+    // Tap on today cell to view details (the cell with the 'x2' badge)
+    await tester.tap(find.text('x2'));
     await tester.pumpAndSettle();
 
     // Day detail panel should show records

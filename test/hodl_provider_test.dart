@@ -47,7 +47,7 @@ void main() {
       );
 
       expect(provider.liquidationHistory.length, 1);
-      expect(provider.liquidationHistory.first.simulatedLossAmount, 1000); // 딸스피는 1,000P
+      expect(provider.liquidationHistory.first.simulatedLossAmount, 1500); // 딸스피 1X는 1,500P
       expect(provider.liquidationHistory.first.reason, '📱 숏츠/릴스 무한스크롤');
       expect(provider.liquidationHistory.first.note, '의지력 방전 반성문');
       expect(provider.liquidationHistory.first.achievedBadges, isNotNull);
@@ -87,12 +87,12 @@ void main() {
       expect(provider.ttalspiIsLeverage2x, isTrue);
       expect(provider.yadongspiIsLeverage2x, isFalse); // 야동스피는 여전히 1X 유지!
 
-      // 딸스피 2X 레버리지 청산: 2,000P
+      // 딸스피 2X 레버리지 청산: 3,000P
       await provider.panicSellAndLiquidate(
         reason: '야수의 심장 2X 청산 테스트',
         note: '미수 깡통 찼노',
       );
-      expect(provider.liquidationHistory.first.simulatedLossAmount, 2000);
+      expect(provider.liquidationHistory.first.simulatedLossAmount, 3000);
       expect(provider.liquidationHistory.first.reason, contains('[2X 레버리지 반대매매 깡통]'));
 
       // 야동스피로 전환 시 야동스피는 여전히 1X 정석 모드여야 함

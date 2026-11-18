@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:confetti/confetti.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
 import '../providers/hodl_provider.dart';

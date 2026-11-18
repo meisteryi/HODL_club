@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'constants/app_colors.dart';
@@ -15,8 +15,7 @@ class DopamineHodlApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final baseTextTheme = ThemeData.dark().textTheme;
-    final textTheme = GoogleFonts.notoSansKrTextTheme(baseTextTheme);
+    final notoFont = GoogleFonts.notoSansKr();
 
     return MultiProvider(
       providers: [
@@ -28,6 +27,7 @@ class DopamineHodlApp extends StatelessWidget {
         theme: ThemeData(
           useMaterial3: true,
           brightness: Brightness.dark,
+          fontFamily: notoFont.fontFamily,
           scaffoldBackgroundColor: AppColors.background,
           colorScheme: const ColorScheme.dark(
             primary: AppColors.neonGreen,
@@ -37,9 +37,10 @@ class DopamineHodlApp extends StatelessWidget {
             onPrimary: AppColors.textInverse,
             onSurface: AppColors.textPrimary,
           ),
-          textTheme: textTheme.apply(
+          textTheme: ThemeData.dark().textTheme.apply(
             bodyColor: AppColors.textPrimary,
             displayColor: AppColors.textPrimary,
+            fontFamily: notoFont.fontFamily,
           ),
           dividerColor: AppColors.border,
           cardColor: AppColors.cardSurface,

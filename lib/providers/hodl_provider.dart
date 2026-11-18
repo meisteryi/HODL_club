@@ -532,22 +532,22 @@ class HodlProvider extends ChangeNotifier {
     final Duration windowDuration;
     final int steps;
     switch (periodIndex) {
-      case 0: // 1분봉 (실시간 최근 2분, 10초 간격)
-        windowDuration = const Duration(minutes: 2);
+      case 0: // 일봉 (최근 24시간, 2시간 간격)
+        windowDuration = const Duration(hours: 24);
         steps = 12;
         break;
-      case 1: // 10분봉 (최근 2시간, 10분 간격)
-        windowDuration = const Duration(hours: 2);
-        steps = 12;
+      case 1: // 주봉 (최근 7일, 1일 간격)
+        windowDuration = const Duration(days: 7);
+        steps = 7;
         break;
-      case 2: // 일봉 (최근 14일, 1일 간격)
-        windowDuration = const Duration(days: 14);
-        steps = 14;
+      case 2: // 월봉 (최근 30일, 2일 간격)
+        windowDuration = const Duration(days: 30);
+        steps = 15;
         break;
-      case 3: // 주봉 (최근 8주, 1주 간격)
+      case 3: // 연봉 (최근 1년 365일, 1개월 간격)
       default:
-        windowDuration = const Duration(days: 56);
-        steps = 8;
+        windowDuration = const Duration(days: 365);
+        steps = 12;
         break;
     }
 
@@ -691,24 +691,24 @@ class HodlProvider extends ChangeNotifier {
     if (idx == steps) {
       switch (periodIndex) {
         case 0:
-        case 1:
           return '● 현재가 (실시간)';
+        case 1:
         case 2:
           return '● 오늘 (실시간)';
         default:
-          return '● 이번 주 (실시간)';
+          return '● 이번 달 (실시간)';
       }
     }
     final remaining = steps - idx;
     switch (periodIndex) {
       case 0:
-        return '${remaining * 10}초 전';
+        return '${remaining * 2}시간 전';
       case 1:
-        return '${remaining * 10}분 전';
-      case 2:
         return '$remaining일 전';
+      case 2:
+        return '${remaining * 2}일 전';
       default:
-        return '$remaining주 전';
+        return '$remaining개월 전';
     }
   }
 
@@ -723,26 +723,25 @@ class HodlProvider extends ChangeNotifier {
 
     if (count > 0) {
       final periodName = switch (periodIndex) {
-        0 => '최근 2분',
-        1 => '최근 2시간',
-        2 => '최근 14일',
-        _ => '최근 8주',
+        0 => '최근 24시간',
+        1 => '최근 7일',
+        2 => '최근 30일',
+        _ => '최근 1년',
       };
       return '📉 [$periodName] ${target.nameKo} 청산 $count회 발생! 실제 폭락 구간 반영 중';
     }
 
-    final perMin = ((1000.0 / 86400.0) * (isLeverage ? 2.0 : 1.0) * 60.0)
-        .toStringAsFixed(2);
+    final perHour = ((1000.0 / 24.0) * (isLeverage ? 2.0 : 1.0)).toStringAsFixed(1);
     switch (periodIndex) {
       case 0:
-        return '⚡ [실시간] 1초마다 ${target.nameKo} 분당 +${perMin}P 실시간 우상향 중 📈';
+        return '⚡ [일봉] 24시간 무사고 실시간 상승 중! (시간당 +${perHour}P) 📈';
       case 1:
-        return '📊 [10분봉] 최근 2시간 무사고 청정 홀딩 중! 흔들림 없는 우상향';
+        return '📊 [주봉] 최근 7일 무사고 청정 홀딩 중! 흔들림 없는 우상향';
       case 2:
-        return '🚀 [일봉] 최근 14일 ${target.nameKo} • 하루 +${isLeverage ? "2,000" : "1,000"}P 적립 중';
+        return '🚀 [월봉] 최근 30일 ${target.nameKo} • 하루 +${isLeverage ? "2,000" : "1,000"}P 적립 중';
       case 3:
       default:
-        return '💎 [주봉] 최근 8주 장기 추이 • ${target.nameKo} 다이아몬드 핸즈';
+        return '💎 [연봉] 최근 1년 장기 추이 • ${target.nameKo} 다이아몬드 핸즈';
     }
   }
 

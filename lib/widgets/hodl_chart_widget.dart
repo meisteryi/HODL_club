@@ -15,7 +15,7 @@ class HodlChartWidget extends StatefulWidget {
 
 class _HodlChartWidgetState extends State<HodlChartWidget> {
   int _selectedCandleIndex = 0;
-  final List<String> _candleLabels = ['1분봉', '10분봉', '일봉', '주봉'];
+  final List<String> _candleLabels = ['일봉', '주봉', '월봉', '연봉'];
 
   @override
   Widget build(BuildContext context) {
@@ -247,12 +247,19 @@ class _HodlChartWidgetState extends State<HodlChartWidget> {
                     sideTitles: SideTitles(
                       showTitles: true,
                       reservedSize: 22,
-                      interval: _selectedCandleIndex == 2
-                          ? 7.0
-                          : (_selectedCandleIndex == 3 ? 2.0 : 3.0),
+                      interval: _selectedCandleIndex == 1
+                          ? 1.0
+                          : (_selectedCandleIndex == 2 ? 5.0 : 3.0),
                       getTitlesWidget: (value, meta) {
                         final idx = value.round();
                         if ((value - idx).abs() > 0.05) {
+                          return const SizedBox.shrink();
+                        }
+                        if (_selectedCandleIndex == 1 &&
+                            idx != 0 &&
+                            idx != 2 &&
+                            idx != 5 &&
+                            idx != 7) {
                           return const SizedBox.shrink();
                         }
                         final label = _formatXLabel(_selectedCandleIndex, series.maxX.toInt(), idx);
@@ -369,16 +376,16 @@ class _HodlChartWidgetState extends State<HodlChartWidget> {
     final remaining = maxSteps - idx;
     if (periodIndex == 0) {
       if (remaining == 0) return '현재';
-      return '${remaining * 10}초전';
+      return '${remaining * 2}h전';
     } else if (periodIndex == 1) {
-      if (remaining == 0) return '현재';
-      return '${remaining * 10}분전';
-    } else if (periodIndex == 2) {
       if (remaining == 0) return '오늘';
       return '$remaining일전';
+    } else if (periodIndex == 2) {
+      if (remaining == 0) return '오늘';
+      return '${remaining * 2}일전';
     } else {
-      if (remaining == 0) return '이번주';
-      return '$remaining주전';
+      if (remaining == 0) return '이번달';
+      return '$remaining달전';
     }
   }
 }

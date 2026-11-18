@@ -132,60 +132,118 @@ class _DashboardScreenState extends State<DashboardScreen> {
     HodlProvider provider,
     TickerType ticker,
   ) {
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          StockTickerSummaryCard(ticker: ticker),
-          ProfitCard(ticker: ticker),
-          HodlTimerWidget(ticker: ticker),
-          const HodlChartWidget(),
-          const LiveOrderBookWidget(),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 900;
 
-          // Panic Sell / Reset Button at the bottom
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-            child: OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                side: BorderSide(
-                  color: AppColors.electricRed.withValues(alpha: 0.5),
-                  width: 1.2,
-                ),
-                backgroundColor: AppColors.darkRed.withValues(alpha: 0.25),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              onPressed: () {
-                if (provider.activeTicker != ticker) {
-                  provider.switchTicker(ticker);
-                }
-                LiquidationModal.show(context);
-              },
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.heart_broken_outlined,
-                    color: AppColors.electricRed,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    ticker.panicButtonText,
-                    style: const TextStyle(
-                      color: AppColors.electricRed,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
+        return SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: isWide
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              flex: 5,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  StockTickerSummaryCard(ticker: ticker),
+                                  ProfitCard(ticker: ticker),
+                                  HodlTimerWidget(ticker: ticker),
+                                ],
+                              ),
+                            ),
+                            const Expanded(
+                              flex: 6,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  HodlChartWidget(),
+                                  LiveOrderBookWidget(),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        _buildPanicSellButton(context, provider, ticker),
+                      ],
                     ),
+                  )
+                : Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          StockTickerSummaryCard(ticker: ticker),
+                          ProfitCard(ticker: ticker),
+                          HodlTimerWidget(ticker: ticker),
+                          const HodlChartWidget(),
+                          const LiveOrderBookWidget(),
+                        ],
+                      ),
+                      _buildPanicSellButton(context, provider, ticker),
+                    ],
                   ),
-                ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPanicSellButton(
+    BuildContext context,
+    HodlProvider provider,
+    TickerType ticker,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+      child: OutlinedButton(
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          side: BorderSide(
+            color: AppColors.electricRed.withValues(alpha: 0.5),
+            width: 1.2,
+          ),
+          backgroundColor: AppColors.darkRed.withValues(alpha: 0.25),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+        onPressed: () {
+          if (provider.activeTicker != ticker) {
+            provider.switchTicker(ticker);
+          }
+          LiquidationModal.show(context);
+        },
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.heart_broken_outlined,
+              color: AppColors.electricRed,
+              size: 18,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              ticker.panicButtonText,
+              style: const TextStyle(
+                color: AppColors.electricRed,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

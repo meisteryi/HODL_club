@@ -46,20 +46,13 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.background,
       body: Center(
         child: Container(
-          constraints: const BoxConstraints(maxWidth: 480),
-          decoration: BoxDecoration(
-            color: AppColors.background,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.8),
-                blurRadius: 30,
-                spreadRadius: 5,
-              ),
-            ],
-          ),
+          width: double.infinity,
+          height: double.infinity,
+          constraints: const BoxConstraints(maxWidth: 1200),
+          color: AppColors.background,
           child: SafeArea(
             bottom: false,
             child: Stack(

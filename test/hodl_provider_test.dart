@@ -196,5 +196,37 @@ void main() {
 
       provider.dispose();
     });
+
+    test('Real-time chart series reflects active ticker growth and liquidation cliff drops', () async {
+      final provider = HodlProvider();
+      await Future.delayed(const Duration(milliseconds: 50));
+
+      final twoDaysAgo = DateTime.now().subtract(const Duration(days: 2));
+      await provider.updateStartTime(TickerType.ttalspi, twoDaysAgo);
+
+      // 1. 청산 전: 2분 윈도우(periodIndex 0)에서 실시간 우상향 검증
+      final seriesBefore = provider.getChartSeries(0, ticker: TickerType.ttalspi);
+      expect(seriesBefore.relapseCountInWindow, 0);
+      expect(seriesBefore.points.last.y, greaterThan(seriesBefore.points.first.y));
+
+      // 2. 딸스피 청산(-1,500P) 발생
+      await provider.panicSellAndLiquidate(
+        reason: '차트 폭락 반영 테스트',
+        note: '청산 직후 그래프 꺾임 검증',
+      );
+
+      // 딸스피 실시간 차트에는 방금 발생한 -1,500P 폭락이 즉시 반영되어야 함
+      final seriesAfter = provider.getChartSeries(0, ticker: TickerType.ttalspi);
+      expect(seriesAfter.relapseCountInWindow, 1);
+      final dropPoints = seriesAfter.points.where((p) => p.isRelapseDrop).toList();
+      expect(dropPoints.length, 1);
+      expect(dropPoints.first.label, contains('-1500P 청산'));
+
+      // 야동스피 차트는 영향을 받지 않아야 함
+      final yadongSeries = provider.getChartSeries(0, ticker: TickerType.yadongspi);
+      expect(yadongSeries.relapseCountInWindow, 0);
+
+      provider.dispose();
+    });
   });
 }

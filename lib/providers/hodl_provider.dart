@@ -23,6 +23,38 @@ class OrderBookItem {
   });
 }
 
+class ChartPointData {
+  final double x;
+  final double y;
+  final DateTime timestamp;
+  final bool isRelapseDrop;
+  final String label;
+
+  const ChartPointData({
+    required this.x,
+    required this.y,
+    required this.timestamp,
+    this.isRelapseDrop = false,
+    required this.label,
+  });
+
+  FlSpot toFlSpot() => FlSpot(x, y);
+}
+
+class ChartSeriesData {
+  final List<ChartPointData> points;
+  final int relapseCountInWindow;
+  final double maxX;
+
+  const ChartSeriesData({
+    required this.points,
+    required this.relapseCountInWindow,
+    required this.maxX,
+  });
+
+  List<FlSpot> get spots => points.map((p) => p.toFlSpot()).toList();
+}
+
 class HodlProvider extends ChangeNotifier {
   // SharedPreferences keys
   static const String _keyTtalspiStartTime = 'hodl_start_time';
@@ -65,8 +97,6 @@ class HodlProvider extends ChangeNotifier {
   Set<String> _yadongspiUnlockedIds = {};
   int _yadongspiDividendPayouts = 0;
   bool _yadongspiIsLeverage2x = false;
-
-  double _jitter = 0.0;
 
   List<LiquidationRecord> _liquidationHistory = [];
   bool _safariPromptDismissed = false;
@@ -387,9 +417,6 @@ class HodlProvider extends ChangeNotifier {
   void _tick() {
     _updateCalculations();
 
-    // Occasional subtle fluctuation for live market effect
-    _jitter = (_random.nextDouble() - 0.45) * 0.15;
-
     // Check automatic achievements
     _checkAutomaticAchievements();
 
@@ -489,106 +516,242 @@ class HodlProvider extends ChangeNotifier {
   }
 
   List<FlSpot> getSpotsForPeriod(int periodIndex) {
-    // 테스토스테론 지수: 딸스피와 야동스피의 평균으로 통일
-    final tPoint = testosteronePoints;
-    final List<FlSpot> spots = [];
+    return getChartSeries(periodIndex).spots;
+  }
 
+  /// 지정된 종목(기본값: 현재 활성 종목)의 실제 포인트 및 청산 이력을 기반으로
+  /// 기간별 실시간 시계열 차트 데이터를 생성합니다.
+  ChartSeriesData getChartSeries(
+    int periodIndex, {
+    TickerType? ticker,
+    DateTime? referenceTime,
+  }) {
+    final target = ticker ?? _activeTicker;
+    final now = referenceTime ?? DateTime.now();
+
+    final Duration windowDuration;
+    final int steps;
     switch (periodIndex) {
-      case 0: // 1분봉: 실시간 초단타 (격렬한 덤핑과 V자 반등)
-        final factors = [
-          0.85, 0.90, 0.95, 0.72, 0.68, 0.79, 0.88, 0.97, 0.92, 1.05, 0.98, 1.00
-        ];
-        for (int i = 0; i < factors.length; i++) {
-          double y;
-          if (i == factors.length - 1) {
-            y = tPoint;
-          } else {
-            y = tPoint >= 0
-                ? max(0.0, tPoint * factors[i] + (i % 2 == 0 ? _jitter : -_jitter))
-                : tPoint * (2.0 - factors[i]);
-          }
-          spots.add(FlSpot(i.toDouble(), y));
-        }
+      case 0: // 1분봉 (실시간 최근 2분, 10초 간격)
+        windowDuration = const Duration(minutes: 2);
+        steps = 12;
         break;
-
-      case 1: // 10분봉: 스윙 파동 (쌍바닥 W자 패턴과 개미털기)
-        final factors = [
-          0.45, 0.62, 0.42, 0.68, 0.44, 0.75, 0.86, 0.80, 0.94, 1.00
-        ];
-        for (int i = 0; i < factors.length; i++) {
-          double y = i == factors.length - 1
-              ? tPoint
-              : (tPoint >= 0 ? max(0.0, tPoint * factors[i]) : tPoint * (2.0 - factors[i]));
-          spots.add(FlSpot(i.toDouble(), y));
-        }
+      case 1: // 10분봉 (최근 2시간, 10분 간격)
+        windowDuration = const Duration(hours: 2);
+        steps = 12;
         break;
-
-      case 2: // 일봉: 계단식 상승 (횡보 매집 → 장대 양봉 갭상승)
-        final factors = [
-          0.15, 0.16, 0.38, 0.35, 0.64, 0.61, 0.88, 1.00
-        ];
-        for (int i = 0; i < factors.length; i++) {
-          double y = i == factors.length - 1
-              ? tPoint
-              : (tPoint >= 0 ? max(0.0, tPoint * factors[i]) : tPoint * (2.0 - factors[i]));
-          spots.add(FlSpot(i.toDouble(), y));
-        }
+      case 2: // 일봉 (최근 14일, 1일 간격)
+        windowDuration = const Duration(days: 14);
+        steps = 14;
         break;
-
-      case 3: // 주봉: 장기 거시 상승 (다이아몬드 핸즈 대세 폭등 곡선)
+      case 3: // 주봉 (최근 8주, 1주 간격)
       default:
-        final factors = [0.05, 0.14, 0.28, 0.48, 0.74, 1.00];
-        for (int i = 0; i < factors.length; i++) {
-          double y = i == factors.length - 1
-              ? tPoint
-              : (tPoint >= 0 ? max(0.0, tPoint * factors[i]) : tPoint * (2.0 - factors[i]));
-          spots.add(FlSpot(i.toDouble(), y));
-        }
+        windowDuration = const Duration(days: 56);
+        steps = 8;
         break;
     }
 
-    return spots;
+    final windowStart = now.subtract(windowDuration);
+    final double maxX = steps.toDouble();
+
+    final double currentPts =
+        target == TickerType.ttalspi ? _ttalspiPoints : _yadongspiPoints;
+    final DateTime? startTime =
+        target == TickerType.ttalspi ? _ttalspiStartTime : _yadongspiStartTime;
+    final double ratePerSec =
+        (1000.0 / 86400.0) * (isLeverage2xFor(target) ? 2.0 : 1.0);
+
+    // 해당 종목의 청산(발사/시청) 이력을 최신순으로 정렬
+    final tickerLiqs = _liquidationHistory
+        .where((r) => r.tickerType == target.name && !r.timestamp.isAfter(now))
+        .toList()
+      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+    double toX(DateTime t) {
+      final totalMs = windowDuration.inMilliseconds;
+      final offsetMs = t.difference(windowStart).inMilliseconds;
+      return (offsetMs / totalMs * maxX).clamp(0.0, maxX);
+    }
+
+    // 세그먼트: (시작 시각, 끝 시각, 끝 시점 포인트)
+    final List<({DateTime start, DateTime end, double endPts})> segments = [];
+    final List<ChartPointData> rawPoints = [];
+    int relapseCountInWindow = 0;
+
+    DateTime cursorTime = now;
+    double cursorPts = currentPts;
+
+    for (final liq in tickerLiqs) {
+      final secsToCursor =
+          cursorTime.difference(liq.timestamp).inMilliseconds / 1000.0;
+      final double ptsAfterDrop =
+          cursorPts - max(0.0, secsToCursor) * ratePerSec;
+      final double ptsBeforeDrop =
+          ptsAfterDrop + liq.simulatedLossAmount.toDouble();
+
+      segments.add((
+        start: liq.timestamp,
+        end: cursorTime,
+        endPts: cursorPts,
+      ));
+
+      if (!liq.timestamp.isBefore(windowStart)) {
+        relapseCountInWindow++;
+        final xPeak = toX(liq.timestamp);
+        final xDrop = min(maxX, xPeak + 0.002);
+
+        rawPoints.add(ChartPointData(
+          x: xPeak,
+          y: ptsBeforeDrop,
+          timestamp: liq.timestamp,
+          isRelapseDrop: false,
+          label: '청산 직전 (${ptsBeforeDrop.toStringAsFixed(1)}P)',
+        ));
+        rawPoints.add(ChartPointData(
+          x: xDrop,
+          y: ptsAfterDrop,
+          timestamp: liq.timestamp,
+          isRelapseDrop: true,
+          label: '💥 -${liq.simulatedLossAmount}P 청산\n${liq.reason}',
+        ));
+      }
+
+      cursorTime = liq.timestamp;
+      cursorPts = ptsBeforeDrop;
+
+      if (liq.timestamp.isBefore(windowStart)) {
+        break;
+      }
+    }
+
+    // 가장 오래된 청산 이전(또는 청산 이력이 전혀 없는 경우) 세그먼트 추가
+    if (cursorTime.isAfter(windowStart)) {
+      segments.add((
+        start: windowStart,
+        end: cursorTime,
+        endPts: cursorPts,
+      ));
+    }
+
+    double evalAt(DateTime t) {
+      // 청산 이력이 전혀 없는 신규 유저인 경우 시작 시각 이전은 0P 유지
+      if (tickerLiqs.isEmpty && startTime != null && t.isBefore(startTime)) {
+        return 0.0;
+      }
+      for (final seg in segments) {
+        if (!t.isBefore(seg.start) && !t.isAfter(seg.end)) {
+          final secs = seg.end.difference(t).inMilliseconds / 1000.0;
+          return seg.endPts - max(0.0, secs) * ratePerSec;
+        }
+      }
+      // 윈도우 시작 이전 세그먼트 fallback
+      final last = segments.last;
+      final secs = last.end.difference(t).inMilliseconds / 1000.0;
+      return last.endPts - max(0.0, secs) * ratePerSec;
+    }
+
+    // 시작 시각이 윈도우 안에 있고 청산 이력이 없는 경우 0P 출발점 추가
+    if (tickerLiqs.isEmpty &&
+        startTime != null &&
+        startTime.isAfter(windowStart) &&
+        startTime.isBefore(now)) {
+      rawPoints.add(ChartPointData(
+        x: toX(startTime),
+        y: 0.0,
+        timestamp: startTime,
+        label: '🚀 존버 시작 (0.0P)',
+      ));
+    }
+
+    // 일정 간격 그리드 포인트 샘플링
+    for (int i = 0; i <= steps; i++) {
+      final t = windowStart.add(
+        Duration(milliseconds: (windowDuration.inMilliseconds * i / steps).round()),
+      );
+      final y = evalAt(t);
+      final label = _formatSampleLabel(periodIndex, steps, i);
+      rawPoints.add(ChartPointData(
+        x: i.toDouble(),
+        y: y,
+        timestamp: t,
+        label: label,
+      ));
+    }
+
+    rawPoints.sort((a, b) => a.x.compareTo(b.x));
+
+    return ChartSeriesData(
+      points: rawPoints,
+      relapseCountInWindow: relapseCountInWindow,
+      maxX: maxX,
+    );
   }
 
-  String getPeriodCommentary(int periodIndex) {
+  String _formatSampleLabel(int periodIndex, int steps, int idx) {
+    if (idx == steps) {
+      switch (periodIndex) {
+        case 0:
+        case 1:
+          return '● 현재가 (실시간)';
+        case 2:
+          return '● 오늘 (실시간)';
+        default:
+          return '● 이번 주 (실시간)';
+      }
+    }
+    final remaining = steps - idx;
     switch (periodIndex) {
       case 0:
-        return '🚨 [1분봉] 실시간 유혹 덤핑 방어 중! 테스토스테론 떡상 V자 반등 📈';
+        return '${remaining * 10}초 전';
       case 1:
-        return '📊 [10분봉] 쌍바닥(W패턴) 개미털기 끝났다 이기, 매도 물량 전량 소화';
+        return '${remaining * 10}분 전';
       case 2:
-        return '🚀 [일봉] 딸스피+야동스피 동반 매집! 장대양봉 폭등 랠리 가즈아';
+        return '$remaining일 전';
+      default:
+        return '$remaining주 전';
+    }
+  }
+
+  String getPeriodCommentary(
+    int periodIndex, {
+    TickerType? ticker,
+    int? relapseCount,
+  }) {
+    final target = ticker ?? _activeTicker;
+    final isLeverage = isLeverage2xFor(target);
+    final count = relapseCount ?? getChartSeries(periodIndex, ticker: target).relapseCountInWindow;
+
+    if (count > 0) {
+      final periodName = switch (periodIndex) {
+        0 => '최근 2분',
+        1 => '최근 2시간',
+        2 => '최근 14일',
+        _ => '최근 8주',
+      };
+      return '📉 [$periodName] ${target.nameKo} 청산 $count회 발생! 실제 폭락 구간 반영 중';
+    }
+
+    final perMin = ((1000.0 / 86400.0) * (isLeverage ? 2.0 : 1.0) * 60.0)
+        .toStringAsFixed(2);
+    switch (periodIndex) {
+      case 0:
+        return '⚡ [실시간] 1초마다 ${target.nameKo} 분당 +${perMin}P 실시간 우상향 중 📈';
+      case 1:
+        return '📊 [10분봉] 최근 2시간 무사고 청정 홀딩 중! 흔들림 없는 우상향';
+      case 2:
+        return '🚀 [일봉] 최근 14일 ${target.nameKo} • 하루 +${isLeverage ? "2,000" : "1,000"}P 적립 중';
       case 3:
       default:
-        return '💎 [주봉] 7일차 테스토스테론 145.7% 피크! 야수의 심장 대세 폭등';
+        return '💎 [주봉] 최근 8주 장기 추이 • ${target.nameKo} 다이아몬드 핸즈';
     }
   }
 
   String getEventLabel(int periodIndex, int spotIndex) {
-    final isYadong = _activeTicker == TickerType.yadongspi;
-    if (periodIndex == 0) {
-      if (spotIndex == 3 || spotIndex == 4) {
-        return isYadong ? '🚨 시크릿탭 켤 뻔하다 대가리 깸' : '🚨 세력의 여캠 릴스 융단폭격';
-      }
-      if (spotIndex == 5 || spotIndex == 6) {
-        return isYadong ? '🛡️ 브라우저 끄고 찬물 한 사발' : '🛡️ 폰 집어던지고 푸쉬업 50개';
-      }
-      if (spotIndex == 9) return '🔥 신고가 돌파 가즈아';
-      if (spotIndex == 11) return '● 실시간 호가';
-      return 'T-${(11 - spotIndex)}분';
-    } else if (periodIndex == 1) {
-      if (spotIndex == 2) return '1차 저점 (유혹 위기)';
-      if (spotIndex == 4) return '2차 쌍바닥 지지';
-      if (spotIndex == 9) return '● 현재가';
-      return 'T-${(9 - spotIndex) * 10}분';
-    } else if (periodIndex == 2) {
-      if (spotIndex == 2) return '+1,000P 돌파';
-      if (spotIndex == 7) return '● 오늘';
-      return 'D-${7 - spotIndex}';
-    } else {
-      if (spotIndex == 5) return '● 이번 주';
-      return 'W-${5 - spotIndex}';
+    final series = getChartSeries(periodIndex);
+    if (spotIndex >= 0 && spotIndex < series.points.length) {
+      return series.points[spotIndex].label;
     }
+    return '';
   }
 
   void _generateInitialOrders() {
